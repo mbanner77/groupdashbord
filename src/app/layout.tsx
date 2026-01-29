@@ -2,6 +2,7 @@ import "./globals.css";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Inter } from "next/font/google";
+import { cookies } from "next/headers";
 import { Navigation } from "../components/Navigation";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { LogoutButton } from "../components/LogoutButton";
@@ -15,8 +16,13 @@ export const metadata = {
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const user = await getCurrentUser();
-  const isLoggedIn = !!user;
+  // Check cookie first (same as middleware)
+  const cookieStore = await cookies();
+  const hasSessionCookie = !!cookieStore.get("session")?.value;
+  
+  // Try to get user details from DB
+  const user = hasSessionCookie ? await getCurrentUser() : null;
+  const isLoggedIn = hasSessionCookie; // Show header if cookie exists
   const isAdmin = user?.role === "admin";
 
   return (
