@@ -1,6 +1,9 @@
 import { Pool, PoolClient } from "pg";
+import Database from "better-sqlite3";
+import path from "path";
 
 const connectionString = process.env.DATABASE_URL;
+const usePostgres = !!connectionString;
 
 export type DbClient = {
   exec: (sql: string, params?: Array<string | number | null>) => Promise<void>;
@@ -10,6 +13,7 @@ export type DbClient = {
 };
 
 let pool: Pool | null = null;
+let sqliteDb: Database.Database | null = null;
 let migrated = false;
 
 function getPool(): Pool {
@@ -20,6 +24,15 @@ function getPool(): Pool {
     });
   }
   return pool;
+}
+
+function getSqliteDb(): Database.Database {
+  if (!sqliteDb) {
+    const dbPath = path.join(process.cwd(), "data", "app.sqlite");
+    sqliteDb = new Database(dbPath);
+    sqliteDb.pragma("journal_mode = WAL");
+  }
+  return sqliteDb;
 }
 
 async function migrate(client: PoolClient) {
@@ -164,31 +177,44 @@ export async function getDb(): Promise<DbClient> {
   return { exec, all, get, save };
 }
 
-// Async versions for PostgreSQL
+// Convert PostgreSQL $1, $2 placeholders to SQLite ? placeholders
+function pgToSqlite(sql: string): string {
+  return sql.replace(/\$\d+/g, "?");
+}
+
+// Async versions - support both PostgreSQL and SQLite
 export async function execAsync(sql: string, params?: Array<string | number | null>): Promise<void> {
-  const p = getPool();
-  const client = await p.connect();
-  try {
-    await migrate(client);
-    let idx = 0;
-    const pgSql = sql.replace(/\?/g, () => `$${++idx}`);
-    await client.query(pgSql, params || []);
-  } finally {
-    client.release();
+  if (usePostgres) {
+    const p = getPool();
+    const client = await p.connect();
+    try {
+      await migrate(client);
+      await client.query(sql, params || []);
+    } finally {
+      client.release();
+    }
+  } else {
+    const db = getSqliteDb();
+    const sqliteSql = pgToSqlite(sql);
+    db.prepare(sqliteSql).run(...(params || []));
   }
 }
 
 export async function allAsync<T = unknown>(sql: string, params?: Array<string | number | null>): Promise<T[]> {
-  const p = getPool();
-  const client = await p.connect();
-  try {
-    await migrate(client);
-    let idx = 0;
-    const pgSql = sql.replace(/\?/g, () => `$${++idx}`);
-    const result = await client.query(pgSql, params || []);
-    return result.rows as T[];
-  } finally {
-    client.release();
+  if (usePostgres) {
+    const p = getPool();
+    const client = await p.connect();
+    try {
+      await migrate(client);
+      const result = await client.query(sql, params || []);
+      return result.rows as T[];
+    } finally {
+      client.release();
+    }
+  } else {
+    const db = getSqliteDb();
+    const sqliteSql = pgToSqlite(sql);
+    return db.prepare(sqliteSql).all(...(params || [])) as T[];
   }
 }
 
