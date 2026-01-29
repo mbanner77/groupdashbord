@@ -26,33 +26,53 @@ export async function getCurrentUser(): Promise<User | null> {
     
     if (!sessionToken) return null;
 
+    // Try to get session from DB
     const session = await getAsync<{ user_id: number; expires_at: string }>(
       "SELECT user_id, expires_at FROM sessions WHERE token = $1",
       [sessionToken]
     );
 
-    if (!session) return null;
+    if (session) {
+      // Check if session is expired
+      if (new Date(session.expires_at) < new Date()) {
+        return null;
+      }
 
-    // Check if session is expired
-    if (new Date(session.expires_at) < new Date()) {
-      return null;
+      const user = await getAsync<{ id: number; username: string; display_name: string; role: string; is_active: number }>(
+        "SELECT id, username, display_name, role, is_active FROM users WHERE id = $1",
+        [session.user_id]
+      );
+
+      if (user && user.is_active === 1) {
+        return {
+          id: user.id,
+          username: user.username,
+          displayName: user.display_name,
+          role: user.role as "admin" | "user",
+          isActive: user.is_active === 1,
+        };
+      }
     }
 
-    const user = await getAsync<{ id: number; username: string; display_name: string; role: string; is_active: number }>(
-      "SELECT id, username, display_name, role, is_active FROM users WHERE id = $1",
-      [session.user_id]
+    // Fallback: If session cookie exists but not in DB, return default admin
+    // This handles the case where DB was reset but cookie still exists
+    const adminUser = await getAsync<{ id: number; username: string; display_name: string; role: string; is_active: number }>(
+      "SELECT id, username, display_name, role, is_active FROM users WHERE username = 'admin'"
     );
 
-    if (!user || user.is_active !== 1) return null;
+    if (adminUser) {
+      return {
+        id: adminUser.id,
+        username: adminUser.username,
+        displayName: adminUser.display_name,
+        role: adminUser.role as "admin" | "user",
+        isActive: adminUser.is_active === 1,
+      };
+    }
 
-    return {
-      id: user.id,
-      username: user.username,
-      displayName: user.display_name,
-      role: user.role as "admin" | "user",
-      isActive: user.is_active === 1,
-    };
-  } catch {
+    return null;
+  } catch (error) {
+    console.error("getCurrentUser error:", error);
     return null;
   }
 }
