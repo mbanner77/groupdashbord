@@ -1,0 +1,67 @@
+import "./globals.css";
+import type { ReactNode } from "react";
+import Link from "next/link";
+import { Inter } from "next/font/google";
+import { Navigation } from "@/components/Navigation";
+import { ThemeToggle } from "@/components/ThemeToggle";
+
+const inter = Inter({ subsets: ["latin"], display: "swap" });
+
+export const metadata = {
+  title: "Group Dashboard | RealCore",
+  description: "Interaktive Workbook-Ansichten mit Charts und Datentabellen",
+};
+
+export default function RootLayout({ children }: { children: ReactNode }) {
+  return (
+    <html lang="de" className={inter.className}>
+      <body className="flex min-h-screen flex-col bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
+        <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/95">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
+            <Link href="/" className="flex items-center gap-3 group">
+              <img
+                src="/rc-logo.png"
+                alt="RealCore"
+                className="h-9 w-auto transition-transform duration-200 group-hover:scale-105"
+              />
+              <div className="hidden sm:block">
+                <div className="text-base font-bold tracking-tight text-slate-900 dark:text-white">
+                  Group Dashboard
+                </div>
+                <div className="text-[10px] font-medium uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  Plan & Forecast
+                </div>
+              </div>
+            </Link>
+            <div className="flex items-center gap-2">
+              <Navigation />
+              <ThemeToggle />
+            </div>
+          </div>
+        </header>
+
+        <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-8">{children}</main>
+
+        <footer className="border-t border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+          <div className="mx-auto max-w-7xl px-6 py-6">
+            <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+              <div className="flex items-center gap-3">
+                <img src="/rc-logo.png" alt="RealCore" className="h-6 w-auto opacity-60" />
+                <span className="text-sm text-slate-500">
+                  © {new Date().getFullYear()} RealCore Group
+                </span>
+              </div>
+              <div className="flex items-center gap-6 text-sm text-slate-500">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  System Online
+                </span>
+                <span>Version 1.0</span>
+              </div>
+            </div>
+          </div>
+        </footer>
+      </body>
+    </html>
+  );
+}
