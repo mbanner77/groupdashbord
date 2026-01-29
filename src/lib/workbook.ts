@@ -1,4 +1,4 @@
-import { getDb } from "./db";
+import { allAsync, getAsync } from "./db";
 import type { Area } from "./dashboard";
 
 export type WorkbookSheetParam = "Umsatz" | "Ertrag" | "Headcount";
@@ -80,16 +80,14 @@ type Entity = { code: string; name: string; isAggregate: boolean };
 type ScenarioEntityMonthMap = Map<string, Map<string, Map<number, number>>>;
 
 async function getEntities(): Promise<Entity[]> {
-  const db = await getDb();
-  const rows = db.all<{ code: string; display_name: string; is_aggregate: number; sort_order: number }>(
+  const rows = await allAsync<{ code: string; display_name: string; is_aggregate: number; sort_order: number }>(
     "SELECT code, display_name, is_aggregate, sort_order FROM entities ORDER BY is_aggregate DESC, sort_order ASC, display_name ASC"
   );
   return rows.map((r) => ({ code: r.code, name: r.display_name, isAggregate: r.is_aggregate === 1 }));
 }
 
 async function getKpiId(area: Area, code: string): Promise<number | null> {
-  const db = await getDb();
-  const row = db.get<{ id: number }>("SELECT id FROM kpis WHERE area = ? AND code = ?", [area, code]);
+  const row = await getAsync<{ id: number }>("SELECT id FROM kpis WHERE area = $1 AND code = $2", [area, code]);
   return row?.id ?? null;
 }
 
@@ -99,15 +97,14 @@ async function loadScenarioEntityMonthMap(params: {
   kpiCode: string;
   scenarios: string[];
 }): Promise<ScenarioEntityMonthMap> {
-  const db = await getDb();
   const kpiId = await getKpiId(params.area, params.kpiCode);
   const out: ScenarioEntityMonthMap = new Map();
   for (const s of params.scenarios) out.set(s, new Map());
   if (!kpiId) return out;
 
   for (const scenario of params.scenarios) {
-    const rows = db.all<{ entity_code: string; month: number; value: number }>(
-      "SELECT e.code as entity_code, vm.month as month, vm.value as value FROM values_monthly vm JOIN entities e ON vm.entity_id = e.id WHERE vm.year = ? AND vm.kpi_id = ? AND vm.scenario = ?",
+    const rows = await allAsync<{ entity_code: string; month: number; value: number }>(
+      "SELECT e.code as entity_code, vm.month as month, vm.value as value FROM values_monthly vm JOIN entities e ON vm.entity_id = e.id WHERE vm.year = $1 AND vm.kpi_id = $2 AND vm.scenario = $3",
       [params.year, kpiId, scenario]
     );
 

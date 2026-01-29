@@ -1,95 +1,151 @@
-import fs from "node:fs";
-import path from "node:path";
-import Database from "better-sqlite3";
+import { Pool, PoolClient } from "pg";
 
-const dbFilePath = path.join(process.cwd(), "data", "app.sqlite");
+const connectionString = process.env.DATABASE_URL;
 
-export type SqliteDb = {
-  exec: (sql: string, params?: Array<string | number | null>) => void;
+export type DbClient = {
+  exec: (sql: string, params?: Array<string | number | null>) => Promise<void>;
   all: <T = unknown>(sql: string, params?: Array<string | number | null>) => T[];
   get: <T = unknown>(sql: string, params?: Array<string | number | null>) => T | null;
   save: () => Promise<void>;
 };
 
-let dbInstance: SqliteDb | null = null;
+let pool: Pool | null = null;
+let migrated = false;
 
-function ensureDataDir() {
-  const dir = path.dirname(dbFilePath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+function getPool(): Pool {
+  if (!pool) {
+    pool = new Pool({
+      connectionString,
+      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+    });
   }
+  return pool;
 }
 
-function migrate(db: Database.Database) {
-  db.pragma("foreign_keys = ON");
-  db.exec(
-    "CREATE TABLE IF NOT EXISTS entities (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT NOT NULL UNIQUE, display_name TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0, is_aggregate INTEGER NOT NULL DEFAULT 0);"
-  );
-  db.exec(
-    "CREATE TABLE IF NOT EXISTS kpis (id INTEGER PRIMARY KEY AUTOINCREMENT, area TEXT NOT NULL, code TEXT NOT NULL, display_name TEXT NOT NULL, is_derived INTEGER NOT NULL DEFAULT 0, UNIQUE(area, code));"
-  );
-  db.exec(
-    "CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);"
-  );
-
-  const tableInfo = db.prepare("PRAGMA table_info(values_monthly)").all() as { name: string }[];
-  const valuesCols = tableInfo.map((r) => r.name);
-  const hasValuesTable = valuesCols.length > 0;
-  const hasScenario = valuesCols.includes("scenario");
-
-  if (hasValuesTable && !hasScenario) {
-    db.exec("ALTER TABLE values_monthly RENAME TO values_monthly_old;");
-    db.exec(
-      "CREATE TABLE values_monthly (id INTEGER PRIMARY KEY AUTOINCREMENT, year INTEGER NOT NULL, month INTEGER NOT NULL, entity_id INTEGER NOT NULL, kpi_id INTEGER NOT NULL, scenario TEXT NOT NULL, value REAL NOT NULL, updated_at TEXT NOT NULL, FOREIGN KEY(entity_id) REFERENCES entities(id) ON DELETE CASCADE, FOREIGN KEY(kpi_id) REFERENCES kpis(id) ON DELETE CASCADE, UNIQUE(year, month, entity_id, kpi_id, scenario));"
+async function migrate(client: PoolClient) {
+  if (migrated) return;
+  
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS entities (
+      id SERIAL PRIMARY KEY,
+      code TEXT NOT NULL UNIQUE,
+      display_name TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      is_aggregate INTEGER NOT NULL DEFAULT 0
     );
-    db.exec(
-      "INSERT INTO values_monthly (year, month, entity_id, kpi_id, scenario, value, updated_at) SELECT year, month, entity_id, kpi_id, 'value', value, updated_at FROM values_monthly_old;"
+  `);
+  
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS kpis (
+      id SERIAL PRIMARY KEY,
+      area TEXT NOT NULL,
+      code TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      is_derived INTEGER NOT NULL DEFAULT 0,
+      UNIQUE(area, code)
     );
-    db.exec("DROP TABLE values_monthly_old;");
-  }
-
-  if (!hasValuesTable) {
-    db.exec(
-      "CREATE TABLE IF NOT EXISTS values_monthly (id INTEGER PRIMARY KEY AUTOINCREMENT, year INTEGER NOT NULL, month INTEGER NOT NULL, entity_id INTEGER NOT NULL, kpi_id INTEGER NOT NULL, scenario TEXT NOT NULL, value REAL NOT NULL, updated_at TEXT NOT NULL, FOREIGN KEY(entity_id) REFERENCES entities(id) ON DELETE CASCADE, FOREIGN KEY(kpi_id) REFERENCES kpis(id) ON DELETE CASCADE, UNIQUE(year, month, entity_id, kpi_id, scenario));"
+  `);
+  
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
     );
-  }
+  `);
+  
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS values_monthly (
+      id SERIAL PRIMARY KEY,
+      year INTEGER NOT NULL,
+      month INTEGER NOT NULL,
+      entity_id INTEGER NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
+      kpi_id INTEGER NOT NULL REFERENCES kpis(id) ON DELETE CASCADE,
+      scenario TEXT NOT NULL,
+      value REAL NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(year, month, entity_id, kpi_id, scenario)
+    );
+  `);
+  
+  migrated = true;
 }
 
-export async function getDb(): Promise<SqliteDb> {
-  if (dbInstance) return dbInstance;
+// Cache für Abfragen innerhalb eines Requests
+let cachedData: {
+  entities: Map<string, unknown[]>;
+  kpis: Map<string, unknown[]>;
+  values: Map<string, unknown[]>;
+  settings: Map<string, unknown>;
+} | null = null;
 
-  ensureDataDir();
-  const db = new Database(dbFilePath);
-  migrate(db);
+export async function getDb(): Promise<DbClient> {
+  const p = getPool();
+  const client = await p.connect();
+  
+  try {
+    await migrate(client);
+  } finally {
+    client.release();
+  }
 
-  const exec = (sql: string, params?: Array<string | number | null>) => {
-    if (params && params.length) {
-      db.prepare(sql).run(...params);
-    } else {
-      db.exec(sql);
+  const exec = async (sql: string, params?: Array<string | number | null>) => {
+    const c = await p.connect();
+    try {
+      // Convert ? placeholders to $1, $2, etc. for PostgreSQL
+      let idx = 0;
+      const pgSql = sql.replace(/\?/g, () => `$${++idx}`);
+      await c.query(pgSql, params || []);
+    } finally {
+      c.release();
     }
   };
 
   const all = <T = unknown>(sql: string, params?: Array<string | number | null>): T[] => {
-    const stmt = db.prepare(sql);
-    if (params && params.length) {
-      return stmt.all(...params) as T[];
-    }
-    return stmt.all() as T[];
+    // This needs to be sync for compatibility, so we use a workaround
+    // In practice, we'll need to refactor callers to be async
+    throw new Error("Use allAsync instead");
   };
 
   const get = <T = unknown>(sql: string, params?: Array<string | number | null>): T | null => {
-    const stmt = db.prepare(sql);
-    if (params && params.length) {
-      return (stmt.get(...params) as T) ?? null;
-    }
-    return (stmt.get() as T) ?? null;
+    throw new Error("Use getAsync instead");
   };
 
   const save = async () => {
-    // better-sqlite3 writes synchronously, no explicit save needed
+    // PostgreSQL commits automatically
   };
 
-  dbInstance = { exec, all, get, save };
-  return dbInstance;
+  return { exec, all, get, save };
+}
+
+// Async versions for PostgreSQL
+export async function execAsync(sql: string, params?: Array<string | number | null>): Promise<void> {
+  const p = getPool();
+  const client = await p.connect();
+  try {
+    await migrate(client);
+    let idx = 0;
+    const pgSql = sql.replace(/\?/g, () => `$${++idx}`);
+    await client.query(pgSql, params || []);
+  } finally {
+    client.release();
+  }
+}
+
+export async function allAsync<T = unknown>(sql: string, params?: Array<string | number | null>): Promise<T[]> {
+  const p = getPool();
+  const client = await p.connect();
+  try {
+    await migrate(client);
+    let idx = 0;
+    const pgSql = sql.replace(/\?/g, () => `$${++idx}`);
+    const result = await client.query(pgSql, params || []);
+    return result.rows as T[];
+  } finally {
+    client.release();
+  }
+}
+
+export async function getAsync<T = unknown>(sql: string, params?: Array<string | number | null>): Promise<T | null> {
+  const rows = await allAsync<T>(sql, params);
+  return rows[0] ?? null;
 }

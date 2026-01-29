@@ -1,18 +1,15 @@
-import { getDb } from "./db";
+import { getAsync, execAsync } from "./db";
 
 export async function getSetting(key: string): Promise<string | null> {
-  const db = await getDb();
-  const row = db.get<{ value: string }>("SELECT value FROM settings WHERE key = ?", [key]);
+  const row = await getAsync<{ value: string }>("SELECT value FROM settings WHERE key = $1", [key]);
   return row?.value ?? null;
 }
 
 export async function setSetting(key: string, value: string): Promise<void> {
-  const db = await getDb();
-  db.exec(
-    "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+  await execAsync(
+    "INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
     [key, value]
   );
-  await db.save();
 }
 
 export async function getForecastCutoffMonth(defaultValue = 12): Promise<number> {

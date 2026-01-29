@@ -1,4 +1,4 @@
-import { getDb } from "./db";
+import { allAsync, getAsync } from "./db";
 
 export type Area = "Umsatz" | "Ertrag" | "Headcount";
 
@@ -58,20 +58,17 @@ function safeDivide(num: number, den: number): number {
 }
 
 async function getEntityId(entityCode: string): Promise<number | null> {
-  const db = await getDb();
-  const row = db.get<{ id: number }>("SELECT id FROM entities WHERE code = ?", [entityCode]);
+  const row = await getAsync<{ id: number }>("SELECT id FROM entities WHERE code = $1", [entityCode]);
   return row?.id ?? null;
 }
 
 async function isAggregateEntity(entityCode: string): Promise<boolean> {
-  const db = await getDb();
-  const row = db.get<{ is_aggregate: number }>("SELECT is_aggregate FROM entities WHERE code = ?", [entityCode]);
+  const row = await getAsync<{ is_aggregate: number }>("SELECT is_aggregate FROM entities WHERE code = $1", [entityCode]);
   return (row?.is_aggregate ?? 0) === 1;
 }
 
 async function getKpiId(area: Area, kpiCode: string): Promise<number | null> {
-  const db = await getDb();
-  const row = db.get<{ id: number }>("SELECT id FROM kpis WHERE area = ? AND code = ?", [area, kpiCode]);
+  const row = await getAsync<{ id: number }>("SELECT id FROM kpis WHERE area = $1 AND code = $2", [area, kpiCode]);
   return row?.id ?? null;
 }
 
@@ -82,15 +79,14 @@ async function loadSeries(params: {
   scenario: string;
   entityCode: string;
 }): Promise<number[]> {
-  const db = await getDb();
   const kpiId = await getKpiId(params.area, params.kpiCode);
   if (!kpiId) return rangeMonths().map(() => 0);
 
   const aggregate = await isAggregateEntity(params.entityCode);
 
   if (aggregate) {
-    const rows = db.all<{ month: number; value: number }>(
-      "SELECT vm.month as month, SUM(vm.value) as value FROM values_monthly vm JOIN entities e ON vm.entity_id = e.id WHERE vm.year = ? AND vm.kpi_id = ? AND vm.scenario = ? AND e.is_aggregate = 0 GROUP BY vm.month",
+    const rows = await allAsync<{ month: number; value: number }>(
+      "SELECT vm.month as month, SUM(vm.value) as value FROM values_monthly vm JOIN entities e ON vm.entity_id = e.id WHERE vm.year = $1 AND vm.kpi_id = $2 AND vm.scenario = $3 AND e.is_aggregate = 0 GROUP BY vm.month",
       [params.year, kpiId, params.scenario]
     );
     return normalizeSeries(rows);
@@ -99,8 +95,8 @@ async function loadSeries(params: {
   const entityId = await getEntityId(params.entityCode);
   if (!entityId) return rangeMonths().map(() => 0);
 
-  const rows = db.all<{ month: number; value: number }>(
-    "SELECT month, value FROM values_monthly WHERE year = ? AND entity_id = ? AND kpi_id = ? AND scenario = ?",
+  const rows = await allAsync<{ month: number; value: number }>(
+    "SELECT month, value FROM values_monthly WHERE year = $1 AND entity_id = $2 AND kpi_id = $3 AND scenario = $4",
     [params.year, entityId, kpiId, params.scenario]
   );
 

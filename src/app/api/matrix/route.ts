@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getDb } from "../../../lib/db";
+import { getAsync, execAsync } from "../../../lib/db";
 import { getForecastCutoffMonth } from "../../../lib/settings";
 
 export const runtime = "nodejs";
@@ -43,55 +43,58 @@ const putSchema = z.object({
 });
 
 export async function PUT(request: Request) {
-  const raw = await request.json().catch(() => null);
-  const parsed = putSchema.safeParse(raw);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "invalid payload" }, { status: 400 });
-  }
+  try {
+    const raw = await request.json().catch(() => null);
+    const parsed = putSchema.safeParse(raw);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "invalid payload" }, { status: 400 });
+    }
 
-  const { sheet, year, entityCode, label } = parsed.data;
-  const mapping = mapLabelToKpi(sheet, label);
-  if (!mapping) {
-    return NextResponse.json({ error: "unsupported edit label" }, { status: 400 });
-  }
+    const { sheet, year, entityCode, label } = parsed.data;
+    const mapping = mapLabelToKpi(sheet, label);
+    if (!mapping) {
+      return NextResponse.json({ error: "unsupported edit label" }, { status: 400 });
+    }
 
-  const cutoffMonth = parsed.data.cutoffMonth ?? (await getForecastCutoffMonth());
-  const db = await getDb();
+    const cutoffMonth = parsed.data.cutoffMonth ?? (await getForecastCutoffMonth());
 
-  const entityRow = db.get<{ id: number; is_aggregate: number }>(
-    "SELECT id, is_aggregate FROM entities WHERE code = ?",
-    [entityCode]
-  );
-  if (!entityRow) {
-    return NextResponse.json({ error: "unknown entity" }, { status: 404 });
-  }
-  if (entityRow.is_aggregate === 1) {
-    return NextResponse.json({ error: "cannot edit aggregate entity" }, { status: 400 });
-  }
-
-  const kpiRow = db.get<{ id: number }>("SELECT id FROM kpis WHERE area = ? AND code = ?", [mapping.area, mapping.kpiCode]);
-  if (!kpiRow) {
-    return NextResponse.json({ error: "unknown kpi" }, { status: 404 });
-  }
-
-  const now = new Date().toISOString();
-  let updated = 0;
-
-  for (let i = 0; i < 12; i++) {
-    const month = i + 1;
-    const value = parsed.data.values[i];
-    const v = typeof value === "number" && Number.isFinite(value) ? value : 0;
-
-    const scenario =
-      mapping.mode === "plan" ? "plan" : month <= cutoffMonth ? "ist" : "fc";
-
-    db.exec(
-      "INSERT INTO values_monthly (year, month, entity_id, kpi_id, scenario, value, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(year, month, entity_id, kpi_id, scenario) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-      [year, month, entityRow.id, kpiRow.id, scenario, v, now]
+    const entityRow = await getAsync<{ id: number; is_aggregate: number }>(
+      "SELECT id, is_aggregate FROM entities WHERE code = $1",
+      [entityCode]
     );
-    updated++;
-  }
+    if (!entityRow) {
+      return NextResponse.json({ error: "unknown entity" }, { status: 404 });
+    }
+    if (entityRow.is_aggregate === 1) {
+      return NextResponse.json({ error: "cannot edit aggregate entity" }, { status: 400 });
+    }
 
-  await db.save();
-  return NextResponse.json({ ok: true, updated });
+    const kpiRow = await getAsync<{ id: number }>("SELECT id FROM kpis WHERE area = $1 AND code = $2", [mapping.area, mapping.kpiCode]);
+    if (!kpiRow) {
+      return NextResponse.json({ error: "unknown kpi" }, { status: 404 });
+    }
+
+    const now = new Date().toISOString();
+    let updated = 0;
+
+    for (let i = 0; i < 12; i++) {
+      const month = i + 1;
+      const value = parsed.data.values[i];
+      const v = typeof value === "number" && Number.isFinite(value) ? value : 0;
+
+      const scenario =
+        mapping.mode === "plan" ? "plan" : month <= cutoffMonth ? "ist" : "fc";
+
+      await execAsync(
+        "INSERT INTO values_monthly (year, month, entity_id, kpi_id, scenario, value, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT(year, month, entity_id, kpi_id, scenario) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+        [year, month, entityRow.id, kpiRow.id, scenario, v, now]
+      );
+      updated++;
+    }
+
+    return NextResponse.json({ ok: true, updated });
+  } catch (error) {
+    console.error("Matrix PUT error:", error);
+    return NextResponse.json({ error: "Failed to update" }, { status: 500 });
+  }
 }
