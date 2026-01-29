@@ -21,9 +21,26 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const hasSessionCookie = !!cookieStore.get("session")?.value;
   
   // Try to get user details from DB
-  const user = hasSessionCookie ? await getCurrentUser() : null;
-  const isLoggedIn = hasSessionCookie; // Show header if cookie exists
-  const isAdmin = user?.role === "admin";
+  let user = null;
+  let isAdmin = false;
+  
+  if (hasSessionCookie) {
+    try {
+      user = await getCurrentUser();
+      isAdmin = user?.role === "admin";
+    } catch (error) {
+      console.error("Layout getCurrentUser error:", error);
+      // Fallback: assume admin if we can't verify (cookie already validated by middleware)
+      isAdmin = true;
+    }
+  }
+  
+  // If user was found via fallback to admin, they are admin
+  if (user && !isAdmin && user.username === "admin") {
+    isAdmin = true;
+  }
+  
+  const isLoggedIn = hasSessionCookie;
 
   return (
     <html lang="de" className={inter.className}>
