@@ -2,10 +2,10 @@ import "./globals.css";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Inter } from "next/font/google";
-import { cookies } from "next/headers";
 import { Navigation } from "../components/Navigation";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { LogoutButton } from "../components/LogoutButton";
+import { getCurrentUser } from "../lib/auth";
 
 const inter = Inter({ subsets: ["latin"], display: "swap" });
 
@@ -15,8 +15,9 @@ export const metadata = {
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const cookieStore = await cookies();
-  const isLoggedIn = !!cookieStore.get("session")?.value;
+  const user = await getCurrentUser();
+  const isLoggedIn = !!user;
+  const isAdmin = user?.role === "admin";
 
   return (
     <html lang="de" className={inter.className}>
@@ -40,7 +41,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 </div>
               </Link>
               <div className="flex items-center gap-2">
-                <Navigation />
+                <Navigation isAdmin={isAdmin} />
                 <ThemeToggle />
                 <LogoutButton />
               </div>

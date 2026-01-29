@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export function Navigation() {
+type NavigationProps = {
+  isAdmin?: boolean;
+};
+
+export function Navigation({ isAdmin = false }: NavigationProps) {
   const pathname = usePathname();
 
   const isActive = (path: string) => {
@@ -14,8 +18,8 @@ export function Navigation() {
   const linkClass = (path: string) =>
     `rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 ${
       isActive(path)
-        ? "bg-slate-900 text-white"
-        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+        ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white"
     }`;
 
   return (
@@ -44,6 +48,16 @@ export function Navigation() {
           Workbook
         </span>
       </Link>
+      {isAdmin && (
+        <Link className={linkClass("/admin/users")} href="/admin/users">
+          <span className="flex items-center gap-2">
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            Benutzer
+          </span>
+        </Link>
+      )}
     </nav>
   );
 }

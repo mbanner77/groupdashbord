@@ -1,13 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import crypto from "crypto";
-
-const USERS = [
-  {
-    username: "admin",
-    passwordHash: crypto.createHash("sha256").update("RealCore2025!").digest("hex"),
-  },
-];
+import { getAsync, execAsync } from "../../../../lib/db";
 
 const SESSION_COOKIE = "session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
@@ -32,8 +26,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const user = USERS.find(
-      (u) => u.username === username && u.passwordHash === hashPassword(password)
+    const passwordHash = hashPassword(password);
+    const user = await getAsync<{ id: number; username: string; display_name: string; role: string; is_active: number }>(
+      "SELECT id, username, display_name, role, is_active FROM users WHERE username = $1 AND password_hash = $2",
+      [username, passwordHash]
     );
 
     if (!user) {
@@ -43,7 +39,22 @@ export async function POST(request: Request) {
       );
     }
 
+    if (user.is_active !== 1) {
+      return NextResponse.json(
+        { error: "Benutzer ist deaktiviert" },
+        { status: 403 }
+      );
+    }
+
     const sessionToken = generateSessionToken();
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + SESSION_MAX_AGE * 1000).toISOString();
+
+    // Store session in database
+    await execAsync(
+      "INSERT INTO sessions (user_id, token, expires_at, created_at) VALUES ($1, $2, $3, $4)",
+      [user.id, sessionToken, expiresAt, now.toISOString()]
+    );
     
     const cookieStore = await cookies();
     cookieStore.set(SESSION_COOKIE, sessionToken, {
@@ -54,8 +65,14 @@ export async function POST(request: Request) {
       path: "/",
     });
 
-    return NextResponse.json({ success: true, username: user.username });
-  } catch {
+    return NextResponse.json({ 
+      success: true, 
+      username: user.username,
+      displayName: user.display_name,
+      role: user.role
+    });
+  } catch (error) {
+    console.error("Login error:", error);
     return NextResponse.json({ error: "Server-Fehler" }, { status: 500 });
   }
 }

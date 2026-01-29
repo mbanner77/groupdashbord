@@ -66,6 +66,53 @@ async function migrate(client: PoolClient) {
       UNIQUE(year, month, entity_id, kpi_id, scenario)
     );
   `);
+
+  // User management tables
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      username TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'user',
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS user_entity_permissions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      entity_id INTEGER NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
+      can_view INTEGER NOT NULL DEFAULT 1,
+      can_edit INTEGER NOT NULL DEFAULT 0,
+      UNIQUE(user_id, entity_id)
+    );
+  `);
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token TEXT NOT NULL UNIQUE,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+  `);
+
+  // Create default admin user if not exists
+  const adminExists = await client.query("SELECT id FROM users WHERE username = 'admin'");
+  if (adminExists.rows.length === 0) {
+    const crypto = await import("crypto");
+    const passwordHash = crypto.createHash("sha256").update("RealCore2025!").digest("hex");
+    const now = new Date().toISOString();
+    await client.query(
+      "INSERT INTO users (username, password_hash, display_name, role, is_active, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+      ["admin", passwordHash, "Administrator", "admin", 1, now, now]
+    );
+  }
   
   migrated = true;
 }
