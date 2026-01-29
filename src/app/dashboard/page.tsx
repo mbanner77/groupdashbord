@@ -153,6 +153,12 @@ function AlertBadge({ variancePercent }: { variancePercent: number }) {
   );
 }
 
+type UserInfo = {
+  isAdmin: boolean;
+  entities: Array<{ code: string; name: string; canEdit: boolean }>;
+  viewableEntityCodes: string[];
+};
+
 export default function DashboardPage() {
   const [data, setData] = useState<KpiData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -163,17 +169,24 @@ export default function DashboardPage() {
   const [compareData, setCompareData] = useState<KpiData | null>(null);
   const [cutoffMonth, setCutoffMonth] = useState(12);
   const [selectedEntity, setSelectedEntity] = useState<string>("group");
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
 
   useEffect(() => {
-    fetch("/api/years")
-      .then((r) => r.json())
-      .then((d) => {
-        setAvailableYears(d.all || []);
-        if (d.available?.length > 0 && !d.available.includes(year)) {
-          setYear(d.available[0]);
-        }
-      })
-      .catch(() => {});
+    // Load user info and years
+    Promise.all([
+      fetch("/api/auth/me").then((r) => r.json()),
+      fetch("/api/years").then((r) => r.json()),
+    ]).then(([user, years]) => {
+      setUserInfo(user);
+      setAvailableYears(years.all || []);
+      if (years.available?.length > 0 && !years.available.includes(year)) {
+        setYear(years.available[0]);
+      }
+      // Set default entity based on permissions
+      if (!user.isAdmin && user.viewableEntityCodes?.length > 0 && !user.viewableEntityCodes.includes("group")) {
+        setSelectedEntity(user.viewableEntityCodes[0]);
+      }
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -325,8 +338,10 @@ export default function DashboardPage() {
               onChange={(e) => setSelectedEntity(e.target.value)}
               className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
             >
-              <option value="group">Group</option>
-              {entities.map((e) => (
+              {(userInfo?.isAdmin || userInfo?.viewableEntityCodes?.includes("group")) && (
+                <option value="group">Group</option>
+              )}
+              {(userInfo?.isAdmin ? entities : userInfo?.entities || []).map((e) => (
                 <option key={e.code} value={e.code}>
                   {e.name}
                 </option>

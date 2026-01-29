@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAsync, execAsync } from "../../../lib/db";
 import { getForecastCutoffMonth } from "../../../lib/settings";
+import { getCurrentUser, canUserEditEntity } from "../../../lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,6 +45,12 @@ const putSchema = z.object({
 
 export async function PUT(request: Request) {
   try {
+    // Auth check
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
+    }
+
     const raw = await request.json().catch(() => null);
     const parsed = putSchema.safeParse(raw);
     if (!parsed.success) {
@@ -51,6 +58,13 @@ export async function PUT(request: Request) {
     }
 
     const { sheet, year, entityCode, label } = parsed.data;
+
+    // Check edit permission
+    const canEdit = await canUserEditEntity(user.id, entityCode, user.role);
+    if (!canEdit) {
+      return NextResponse.json({ error: "Keine Berechtigung zum Bearbeiten dieser Entität" }, { status: 403 });
+    }
+
     const mapping = mapLabelToKpi(sheet, label);
     if (!mapping) {
       return NextResponse.json({ error: "unsupported edit label" }, { status: 400 });

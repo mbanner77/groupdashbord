@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { allAsync, getAsync } from "../../../lib/db";
+import { getCurrentUser, getViewableEntities } from "../../../lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,14 @@ interface MonthlyValue {
 
 export async function GET(request: Request) {
   try {
+    // Auth check
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
+    }
+
+    const viewableEntities = await getViewableEntities(user.id, user.role);
+
     const { searchParams } = new URL(request.url);
     const year = Number(searchParams.get("year")) || 2025;
     const cutoffMonth = Number(searchParams.get("cutoffMonth")) || 12;
@@ -134,13 +143,16 @@ export async function GET(request: Request) {
     const priorYearUmsatz = umsatzPriorYear.find((v) => v.month === 12)?.value ?? 0;
     const priorYearEbit = ebitPriorYear.find((v) => v.month === 12)?.value ?? 0;
 
-    // Entity breakdown
+    // Entity breakdown - filtered by permissions
     const entitiesRaw = await allAsync<{ id: number; code: string; display_name: string }>(
       "SELECT id, code, display_name FROM entities WHERE is_aggregate = 0 ORDER BY display_name"
     );
 
+    // Filter entities based on user permissions
+    const allowedEntities = entitiesRaw.filter(e => viewableEntities.includes(e.code));
+
     const entityData = await Promise.all(
-      entitiesRaw.map(async (e) => {
+      allowedEntities.map(async (e) => {
         const [uPlan, uIst, uFc, ePlan, eIst, eFc, hIst, hFc] = await Promise.all([
           getMonthlyValues(e.id, umsatzKpiId, "plan"),
           getMonthlyValues(e.id, umsatzKpiId, "ist"),
