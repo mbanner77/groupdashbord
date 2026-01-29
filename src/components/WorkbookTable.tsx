@@ -1,4 +1,4 @@
-import type { WorkbookLine } from "@/lib/workbook";
+import type { WorkbookLine } from "../lib/workbook";
 
 export function WorkbookTable(props: {
   months: Array<{ month: number; label: string }>;

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getDb } from "@/lib/db";
-import { getForecastCutoffMonth } from "@/lib/settings";
+import { getDb } from "../../../lib/db";
+import { getForecastCutoffMonth } from "../../../lib/settings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

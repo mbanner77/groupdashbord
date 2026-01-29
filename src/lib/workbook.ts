@@ -1,5 +1,5 @@
-import { getDb } from "@/lib/db";
-import type { Area } from "@/lib/dashboard";
+import { getDb } from "./db";
+import type { Area } from "./dashboard";
 
 export type WorkbookSheetParam = "Umsatz" | "Ertrag" | "Headcount";
 

@@ -2,8 +2,8 @@ import "./globals.css";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Inter } from "next/font/google";
-import { Navigation } from "@/components/Navigation";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { Navigation } from "../components/Navigation";
+import { ThemeToggle } from "../components/ThemeToggle";
 
 const inter = Inter({ subsets: ["latin"], display: "swap" });
 

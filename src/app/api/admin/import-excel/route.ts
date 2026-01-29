@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { z } from "zod";
-import { getDb } from "@/lib/db";
-import { slugify } from "@/lib/slug";
+import { getDb } from "../../../../lib/db";
+import { slugify } from "../../../../lib/slug";
 
 export const runtime = "nodejs";
 

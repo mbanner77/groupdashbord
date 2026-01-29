@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getForecastCutoffMonth } from "@/lib/settings";
-import { getDashboard } from "@/lib/dashboard";
+import { getForecastCutoffMonth } from "../../../lib/settings";
+import { getDashboard } from "../../../lib/dashboard";
 
 export const runtime = "nodejs";
 

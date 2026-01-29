@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { WorkbookBarChart, WorkbookLineChart } from "@/components/WorkbookCharts";
-import { WorkbookTable } from "@/components/WorkbookTable";
-import { Toast } from "@/components/Toast";
-import type { WorkbookSheet } from "@/lib/workbook";
+import { WorkbookBarChart, WorkbookLineChart } from "../../../components/WorkbookCharts";
+import { WorkbookTable } from "../../../components/WorkbookTable";
+import { Toast } from "../../../components/Toast";
+import type { WorkbookSheet } from "../../../lib/workbook";
 
 type SheetParam = "umsatz" | "ertrag" | "headcount";
 
