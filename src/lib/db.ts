@@ -194,29 +194,23 @@ async function seedDataIfEmpty(client: PoolClient) {
 
 async function seedValuesFromFile(client: PoolClient) {
   try {
-    const fs = await import("fs");
-    const seedPath = path.join(process.cwd(), "data", "seed-data.json");
+    // Import embedded seed data
+    const { seedValues } = await import("./seed-data");
     
-    if (!fs.existsSync(seedPath)) {
-      console.log("No seed-data.json found, skipping values seeding");
-      return;
-    }
-
-    const seedData = JSON.parse(fs.readFileSync(seedPath, "utf-8"));
-    const values = seedData.values || [];
-
-    console.log(`Seeding ${values.length} monthly values...`);
+    console.log(`Seeding ${seedValues.length} monthly values...`);
+    const now = new Date().toISOString();
 
     // Batch insert for performance
-    for (let i = 0; i < values.length; i += 100) {
-      const batch = values.slice(i, i + 100);
+    for (let i = 0; i < seedValues.length; i += 100) {
+      const batch = seedValues.slice(i, i + 100);
       for (const v of batch) {
         await client.query(
           "INSERT INTO values_monthly (year, month, entity_id, kpi_id, scenario, value, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (year, month, entity_id, kpi_id, scenario) DO NOTHING",
-          [v.year, v.month, v.entity_id, v.kpi_id, v.scenario, v.value, v.updated_at]
+          [v.year, v.month, v.entity_id, v.kpi_id, v.scenario, v.value, now]
         );
       }
     }
+    console.log("Values seeded successfully!");
   } catch (error) {
     console.error("Error seeding values:", error);
   }
