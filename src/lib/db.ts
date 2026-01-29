@@ -126,8 +126,100 @@ async function migrate(client: PoolClient) {
       ["admin", passwordHash, "Administrator", "admin", 1, now, now]
     );
   }
+
+  // Seed data if tables are empty
+  await seedDataIfEmpty(client);
   
   migrated = true;
+}
+
+async function seedDataIfEmpty(client: PoolClient) {
+  // Check if entities table is empty
+  const entityCount = await client.query("SELECT COUNT(*) as count FROM entities");
+  if (parseInt(entityCount.rows[0].count) > 0) {
+    return; // Data already exists
+  }
+
+  console.log("Seeding database with initial data...");
+
+  // Seed entities
+  const entities = [
+    { id: 1, code: "gruppe", display_name: "Gruppe", sort_order: 0, is_aggregate: 1 },
+    { id: 2, code: "rcc", display_name: "RCC", sort_order: 0, is_aggregate: 0 },
+    { id: 3, code: "rcs", display_name: "RCS", sort_order: 0, is_aggregate: 0 },
+    { id: 4, code: "rct", display_name: "RCT", sort_order: 0, is_aggregate: 0 },
+    { id: 5, code: "rso", display_name: "RSO", sort_order: 0, is_aggregate: 0 },
+    { id: 6, code: "rbc", display_name: "RBC", sort_order: 0, is_aggregate: 0 },
+    { id: 7, code: "group", display_name: "Group", sort_order: 0, is_aggregate: 0 },
+    { id: 8, code: "rcm", display_name: "RCM", sort_order: 0, is_aggregate: 0 },
+    { id: 9, code: "media", display_name: "Media", sort_order: 0, is_aggregate: 0 },
+    { id: 10, code: "dec", display_name: "DEC", sort_order: 0, is_aggregate: 0 },
+    { id: 11, code: "schweiz", display_name: "Schweiz", sort_order: 0, is_aggregate: 0 },
+    { id: 12, code: "rps", display_name: "rps", sort_order: 0, is_aggregate: 0 },
+    { id: 13, code: "rc4c", display_name: "RC4C", sort_order: 0, is_aggregate: 0 },
+    { id: 14, code: "albanien", display_name: "Albanien", sort_order: 0, is_aggregate: 0 },
+    { id: 15, code: "slovenien", display_name: "Slovenien", sort_order: 0, is_aggregate: 0 },
+  ];
+
+  for (const e of entities) {
+    await client.query(
+      "INSERT INTO entities (id, code, display_name, sort_order, is_aggregate) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (code) DO NOTHING",
+      [e.id, e.code, e.display_name, e.sort_order, e.is_aggregate]
+    );
+  }
+  await client.query("SELECT setval('entities_id_seq', 15, true)");
+
+  // Seed KPIs
+  const kpis = [
+    { id: 1, area: "Umsatz", code: "umsatz", display_name: "Umsatz", is_derived: 0 },
+    { id: 2, area: "Ertrag", code: "ebit", display_name: "EBIT", is_derived: 0 },
+    { id: 3, area: "Headcount", code: "headcount", display_name: "Headcount", is_derived: 0 },
+    { id: 4, area: "Headcount", code: "headcount_umlagerelevant", display_name: "Headcount Umlagerelevant", is_derived: 0 },
+    { id: 5, area: "Headcount", code: "headcount_ohne_umlage_de", display_name: "Headcount ohne Umlage DE", is_derived: 0 },
+  ];
+
+  for (const k of kpis) {
+    await client.query(
+      "INSERT INTO kpis (id, area, code, display_name, is_derived) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (area, code) DO NOTHING",
+      [k.id, k.area, k.code, k.display_name, k.is_derived]
+    );
+  }
+  await client.query("SELECT setval('kpis_id_seq', 5, true)");
+
+  // Seed values from embedded data
+  await seedValuesFromFile(client);
+
+  console.log("Database seeded successfully!");
+}
+
+async function seedValuesFromFile(client: PoolClient) {
+  try {
+    const fs = await import("fs");
+    const seedPath = path.join(process.cwd(), "data", "seed-data.json");
+    
+    if (!fs.existsSync(seedPath)) {
+      console.log("No seed-data.json found, skipping values seeding");
+      return;
+    }
+
+    const seedData = JSON.parse(fs.readFileSync(seedPath, "utf-8"));
+    const values = seedData.values || [];
+
+    console.log(`Seeding ${values.length} monthly values...`);
+
+    // Batch insert for performance
+    for (let i = 0; i < values.length; i += 100) {
+      const batch = values.slice(i, i + 100);
+      for (const v of batch) {
+        await client.query(
+          "INSERT INTO values_monthly (year, month, entity_id, kpi_id, scenario, value, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (year, month, entity_id, kpi_id, scenario) DO NOTHING",
+          [v.year, v.month, v.entity_id, v.kpi_id, v.scenario, v.value, v.updated_at]
+        );
+      }
+    }
+  } catch (error) {
+    console.error("Error seeding values:", error);
+  }
 }
 
 // Cache für Abfragen innerhalb eines Requests
