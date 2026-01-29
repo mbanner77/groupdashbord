@@ -60,7 +60,7 @@ export async function GET(request: Request) {
     const safePercent = (a: number, b: number) => (b !== 0 ? ((a - b) / Math.abs(b)) * 100 : 0);
 
     // Get IDs
-    const gruppeId = await getEntityId("gruppe");
+    const gruppeId = await getEntityId("group");
     const umsatzKpiId = await getKpiId("Umsatz", "umsatz");
     const ebitKpiId = await getKpiId("Ertrag", "ebit");
     const headcountKpiId = await getKpiId("Headcount", "headcount");

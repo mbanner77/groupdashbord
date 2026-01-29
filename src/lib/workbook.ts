@@ -186,7 +186,7 @@ export async function getWorkbookSheet(params: {
       lines.push({ entityCode: entity.code, entityName: entity.name, label: "Vorjahr kum", values: priorYearCum });
     }
 
-    const gruppe = entities.find((e) => e.code === "gruppe") ?? entities[0];
+    const gruppe = entities.find((e) => e.code === "group") ?? entities[0];
     const plan = seriesFromMap({ map, scenario: "plan", entity: gruppe, entities });
     const ist = seriesFromMap({ map, scenario: "ist", entity: gruppe, entities });
     const fc = seriesFromMap({ map, scenario: "fc", entity: gruppe, entities });
@@ -247,7 +247,7 @@ export async function getWorkbookSheet(params: {
       lines.push({ entityCode: entity.code, entityName: entity.name, label: "Vorjahr kum", values: priorYearCum });
     }
 
-    const gruppe = entities.find((e) => e.code === "gruppe") ?? entities[0];
+    const gruppe = entities.find((e) => e.code === "group") ?? entities[0];
     const plan = seriesFromMap({ map, scenario: "plan", entity: gruppe, entities });
     const ist = seriesFromMap({ map, scenario: "ist", entity: gruppe, entities });
     const fc = seriesFromMap({ map, scenario: "fc", entity: gruppe, entities });
@@ -346,7 +346,7 @@ export async function getWorkbookSheet(params: {
     lines.push({ entityCode: entity.code, entityName: entity.name, label: "Vorjahr kum", values: priorYearCum });
   }
 
-  const gruppe = entities.find((e) => e.code === "gruppe") ?? entities[0];
+  const gruppe = entities.find((e) => e.code === "group") ?? entities[0];
   const hcPlan = seriesFromMap({ map: headcountMap, scenario: "plan", entity: gruppe, entities });
   const hcIst = seriesFromMap({ map: headcountMap, scenario: "ist", entity: gruppe, entities });
   const hcFc = seriesFromMap({ map: headcountMap, scenario: "fc", entity: gruppe, entities });

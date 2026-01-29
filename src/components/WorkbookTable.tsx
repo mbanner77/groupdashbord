@@ -7,7 +7,7 @@ export function WorkbookTable(props: {
   const nf = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   const formatValue = (v: number) => (Number.isFinite(v) ? nf.format(v) : "–");
 
-  const isGroupRow = (l: WorkbookLine) => l.entityCode === "gruppe";
+  const isGroupRow = (l: WorkbookLine) => l.entityCode === "group";
 
   return (
     <section className="rounded-2xl bg-white p-5 shadow-lg ring-1 ring-slate-200/60">
