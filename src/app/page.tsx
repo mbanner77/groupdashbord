@@ -91,12 +91,12 @@ export default function HomePage() {
   return (
     <div className="space-y-12">
       {/* Hero Section */}
-      <section className="relative overflow-hidden rounded-3xl bg-white p-8 shadow-lg ring-1 ring-slate-200/60 sm:p-10">
-        <div className="absolute right-0 top-0 -mr-20 -mt-20 h-64 w-64 rounded-full bg-gradient-to-br from-sky-100 to-emerald-100 opacity-50 blur-3xl" />
-        <div className="absolute bottom-0 left-0 -mb-20 -ml-20 h-64 w-64 rounded-full bg-gradient-to-br from-violet-100 to-pink-100 opacity-50 blur-3xl" />
+      <section className="relative overflow-hidden rounded-3xl bg-white dark:bg-slate-800 p-8 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700 sm:p-10">
+        <div className="absolute right-0 top-0 -mr-20 -mt-20 h-64 w-64 rounded-full bg-gradient-to-br from-sky-100 to-emerald-100 dark:from-sky-900/30 dark:to-emerald-900/30 opacity-50 blur-3xl" />
+        <div className="absolute bottom-0 left-0 -mb-20 -ml-20 h-64 w-64 rounded-full bg-gradient-to-br from-violet-100 to-pink-100 dark:from-violet-900/30 dark:to-pink-900/30 opacity-50 blur-3xl" />
         
         <div className="relative flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left gap-8">
-          <div className="shrink-0 rounded-2xl bg-white p-4 shadow-lg ring-1 ring-slate-200/60">
+          <div className="shrink-0 rounded-2xl bg-white dark:bg-slate-700 p-4 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-600">
             <img
               src="/rc-logo.png"
               alt="RealCore"
@@ -108,10 +108,10 @@ export default function HomePage() {
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
               Version 1.0 — Live
             </div>
-            <h1 className="mt-4 text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
+            <h1 className="mt-4 text-4xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-5xl">
               Group Dashboard
             </h1>
-            <p className="mt-4 max-w-xl text-lg text-slate-600">
+            <p className="mt-4 max-w-xl text-lg text-slate-600 dark:text-slate-300">
               Zentrale Plattform für Finanzplanung und Controlling. 
               Analysiere Umsatz, EBIT und Headcount – bearbeite Plan- und Forecast-Daten in Echtzeit.
             </p>
@@ -127,7 +127,7 @@ export default function HomePage() {
               </Link>
               <Link
                 href="/workbook/umsatz"
-                className="inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 transition-all hover:bg-slate-50 hover:shadow-md active:scale-[0.98]"
+                className="inline-flex items-center gap-2 rounded-xl bg-white dark:bg-slate-700 px-6 py-3 text-sm font-semibold text-slate-700 dark:text-slate-200 ring-1 ring-slate-200 dark:ring-slate-600 transition-all hover:bg-slate-50 dark:hover:bg-slate-600 hover:shadow-md active:scale-[0.98]"
               >
                 Workbooks erkunden
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -142,21 +142,22 @@ export default function HomePage() {
       {/* Features Grid */}
       <section>
         <div className="mb-6 text-center">
-          <h2 className="text-2xl font-bold text-slate-900">Funktionen</h2>
-          <p className="mt-2 text-slate-600">Alles was du für die Finanzplanung brauchst</p>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Funktionen</h2>
+          <p className="mt-2 text-slate-600 dark:text-slate-400">Alles was du für die Finanzplanung brauchst</p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {features.map((feature) => (
+          {features.map((feature, idx) => (
             <div
               key={feature.title}
-              className="flex items-start gap-4 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200/80"
+              className="flex items-start gap-4 rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700 transition-all hover:shadow-md hover:-translate-y-0.5"
+              style={{ animationDelay: `${idx * 50}ms` }}
             >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
                 {feature.icon}
               </div>
               <div>
-                <h3 className="font-semibold text-slate-900">{feature.title}</h3>
-                <p className="mt-1 text-sm text-slate-500">{feature.description}</p>
+                <h3 className="font-semibold text-slate-900 dark:text-white">{feature.title}</h3>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{feature.description}</p>
               </div>
             </div>
           ))}
@@ -167,8 +168,8 @@ export default function HomePage() {
       <section>
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-slate-900">Workbooks</h2>
-            <p className="mt-1 text-slate-600">Detaillierte Analysen nach Bereich</p>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Workbooks</h2>
+            <p className="mt-1 text-slate-600 dark:text-slate-400">Detaillierte Analysen nach Bereich</p>
           </div>
           <Link
             href="/workbook"
@@ -183,17 +184,17 @@ export default function HomePage() {
               key={sheet.id}
               href={`/workbook/${sheet.id}`}
               prefetch={true}
-              className={`group block rounded-2xl border-2 ${sheet.borderColor} bg-white p-6 transition-all duration-200 hover:shadow-lg hover:-translate-y-1 active:scale-[0.99]`}
+              className={`group block rounded-2xl border-2 ${sheet.borderColor} dark:border-slate-700 bg-white dark:bg-slate-800 p-6 transition-all duration-200 hover:shadow-lg hover:-translate-y-1 active:scale-[0.99]`}
             >
-              <div className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl ${sheet.iconBg}`}>
+              <div className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl ${sheet.iconBg} dark:bg-slate-700`}>
                 <svg className={`h-6 w-6 ${sheet.iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold text-slate-900">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                 {sheet.title}
               </h3>
-              <p className="mt-2 text-sm leading-relaxed text-slate-500">
+              <p className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
                 {sheet.description}
               </p>
               <div className={`mt-5 inline-flex items-center gap-1.5 rounded-lg ${sheet.bgLight} px-3 py-1.5 text-xs font-semibold ${sheet.iconColor}`}>

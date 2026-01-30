@@ -32,12 +32,21 @@
     background: #f1f5f9;
     border-radius: 4px;
   }
+  .dark ::-webkit-scrollbar-track {
+    background: #1e293b;
+  }
   ::-webkit-scrollbar-thumb {
     background: #cbd5e1;
     border-radius: 4px;
   }
+  .dark ::-webkit-scrollbar-thumb {
+    background: #475569;
+  }
   ::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
+  }
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
   }
 
   /* Better focus states */
@@ -91,5 +100,39 @@
   /* Loading skeleton */
   .skeleton {
     @apply animate-pulse rounded bg-slate-200;
+  }
+
+  /* Fade in animation */
+  .fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+
+  .fade-in-up {
+    animation: fadeInUp 0.5s ease-out forwards;
+  }
+
+  .stagger-1 { animation-delay: 50ms; }
+  .stagger-2 { animation-delay: 100ms; }
+  .stagger-3 { animation-delay: 150ms; }
+  .stagger-4 { animation-delay: 200ms; }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

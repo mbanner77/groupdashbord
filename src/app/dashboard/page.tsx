@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   BarChart,
   Bar,
@@ -15,6 +15,8 @@ import {
   PieChart,
   Pie,
   Cell,
+  AreaChart,
+  Area,
 } from "recharts";
 
 interface KpiData {
@@ -70,6 +72,68 @@ interface KpiData {
 const MONTHS = ["Jan", "Feb", "Mrz", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
 const COLORS = ["#0ea5e9", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444", "#ec4899", "#06b6d4", "#84cc16"];
 
+function Sparkline({ data, color, height = 40 }: { data: number[]; color: string; height?: number }) {
+  const max = Math.max(...data, 1);
+  const min = Math.min(...data, 0);
+  const range = max - min || 1;
+  const points = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * 100;
+    const y = height - ((v - min) / range) * (height - 4);
+    return `${x},${y}`;
+  }).join(" ");
+  
+  return (
+    <svg viewBox={`0 0 100 ${height}`} className="w-full" style={{ height }} preserveAspectRatio="none">
+      <polyline
+        fill="none"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        points={points}
+      />
+    </svg>
+  );
+}
+
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-8 animate-pulse">
+      <div className="rounded-2xl bg-white dark:bg-slate-800 p-6 shadow-lg">
+        <div className="flex justify-between items-center">
+          <div>
+            <div className="h-8 w-48 bg-slate-200 dark:bg-slate-700 rounded" />
+            <div className="h-4 w-64 bg-slate-200 dark:bg-slate-700 rounded mt-2" />
+          </div>
+          <div className="flex gap-3">
+            <div className="h-10 w-24 bg-slate-200 dark:bg-slate-700 rounded-lg" />
+            <div className="h-10 w-24 bg-slate-200 dark:bg-slate-700 rounded-lg" />
+            <div className="h-10 w-24 bg-slate-200 dark:bg-slate-700 rounded-lg" />
+          </div>
+        </div>
+      </div>
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="rounded-2xl bg-white dark:bg-slate-800 p-6 shadow-lg">
+            <div className="h-4 w-24 bg-slate-200 dark:bg-slate-700 rounded" />
+            <div className="h-8 w-32 bg-slate-200 dark:bg-slate-700 rounded mt-3" />
+            <div className="h-4 w-20 bg-slate-200 dark:bg-slate-700 rounded mt-2" />
+            <div className="h-10 w-full bg-slate-200 dark:bg-slate-700 rounded mt-4" />
+          </div>
+        ))}
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        {[...Array(2)].map((_, i) => (
+          <div key={i} className="rounded-2xl bg-white dark:bg-slate-800 p-6 shadow-lg">
+            <div className="h-5 w-40 bg-slate-200 dark:bg-slate-700 rounded mb-4" />
+            <div className="h-[280px] bg-slate-200 dark:bg-slate-700 rounded" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const formatCurrency = (v: number) =>
   new Intl.NumberFormat("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v);
 
@@ -84,6 +148,9 @@ function KpiCard({
   variancePercent,
   format = "currency",
   icon,
+  sparklineData,
+  sparklineColor,
+  delay = 0,
 }: {
   title: string;
   actual: number;
@@ -92,6 +159,9 @@ function KpiCard({
   variancePercent?: number;
   format?: "currency" | "percent" | "number";
   icon: React.ReactNode;
+  sparklineData?: number[];
+  sparklineColor?: string;
+  delay?: number;
 }) {
   const formatValue = (v: number) => {
     if (format === "percent") return formatPercent(v);
@@ -102,35 +172,48 @@ function KpiCard({
   const isPositive = (variancePercent ?? 0) >= 0;
 
   return (
-    <div className="rounded-2xl bg-white p-6 shadow-lg ring-1 ring-slate-200/60">
+    <div 
+      className="rounded-2xl bg-white dark:bg-slate-800 p-6 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700 transition-all duration-500 hover:shadow-xl hover:-translate-y-0.5"
+      style={{ animationDelay: `${delay}ms` }}
+    >
       <div className="flex items-start justify-between">
-        <div>
-          <div className="text-sm font-medium text-slate-500">{title}</div>
-          <div className="mt-2 text-3xl font-bold text-slate-900">{formatValue(actual)}</div>
-          <div className="mt-1 text-sm text-slate-500">Plan: {formatValue(plan)}</div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-slate-500 dark:text-slate-400">{title}</div>
+          <div className="mt-2 text-3xl font-bold text-slate-900 dark:text-white truncate">{formatValue(actual)}</div>
+          <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">Plan: {formatValue(plan)}</div>
         </div>
-        <div className="rounded-xl bg-slate-100 p-3">{icon}</div>
+        <div className="rounded-xl bg-slate-100 dark:bg-slate-700 p-3 flex-shrink-0">{icon}</div>
       </div>
+      {sparklineData && sparklineData.length > 0 && (
+        <div className="mt-4 opacity-60">
+          <Sparkline data={sparklineData} color={sparklineColor || "#94a3b8"} />
+        </div>
+      )}
       {variancePercent !== undefined && (
         <div className="mt-4 flex items-center gap-2">
           <span
-            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
-              isPositive ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${
+              isPositive 
+                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" 
+                : "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
             }`}
           >
             {isPositive ? "↑" : "↓"} {formatPercent(Math.abs(variancePercent))}
           </span>
-          <span className="text-xs text-slate-500">vs. Plan</span>
+          <span className="text-xs text-slate-500 dark:text-slate-400">vs. Plan</span>
         </div>
       )}
     </div>
   );
 }
 
-function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+function ChartCard({ title, children, actions }: { title: string; children: React.ReactNode; actions?: React.ReactNode }) {
   return (
-    <div className="rounded-2xl bg-white p-6 shadow-lg ring-1 ring-slate-200/60">
-      <h3 className="mb-4 text-base font-semibold text-slate-900">{title}</h3>
+    <div className="rounded-2xl bg-white dark:bg-slate-800 p-6 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700 transition-shadow hover:shadow-xl">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-base font-semibold text-slate-900 dark:text-white">{title}</h3>
+        {actions}
+      </div>
       <div className="h-[280px]">{children}</div>
     </div>
   );
@@ -170,6 +253,9 @@ export default function DashboardPage() {
   const [cutoffMonth, setCutoffMonth] = useState(12);
   const [selectedEntity, setSelectedEntity] = useState<string>("group");
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const [showCumulative, setShowCumulative] = useState(false);
+  const [sortColumn, setSortColumn] = useState<"umsatz" | "ebit" | "ebitMargin" | "headcount">("umsatz");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
   useEffect(() => {
     // Load user info and years
@@ -181,10 +267,6 @@ export default function DashboardPage() {
       setAvailableYears(years.all || []);
       if (years.available?.length > 0 && !years.available.includes(year)) {
         setYear(years.available[0]);
-      }
-      // Set default entity based on permissions
-      if (!user.isAdmin && user.viewableEntityCodes?.length > 0 && !user.viewableEntityCodes.includes("group")) {
-        setSelectedEntity(user.viewableEntityCodes[0]);
       }
     }).catch(() => {});
   }, []);
@@ -244,12 +326,32 @@ export default function DashboardPage() {
     URL.revokeObjectURL(url);
   };
 
+  const sortedEntities = useMemo(() => {
+    if (!data) return [];
+    return [...data.entities].sort((a, b) => {
+      const aVal = a[sortColumn];
+      const bVal = b[sortColumn];
+      return sortDirection === "desc" ? bVal - aVal : aVal - bVal;
+    });
+  }, [data, sortColumn, sortDirection]);
+
+  const toggleSort = (column: typeof sortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(d => d === "desc" ? "asc" : "desc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("desc");
+    }
+  };
+
+  const SortIcon = ({ column }: { column: typeof sortColumn }) => (
+    <span className={`ml-1 inline-block transition-transform ${sortColumn === column ? "opacity-100" : "opacity-0"}`}>
+      {sortDirection === "desc" ? "↓" : "↑"}
+    </span>
+  );
+
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-sky-500" />
-      </div>
-    );
+    return <LoadingSkeleton />;
   }
 
   if (error || !data) {
@@ -262,13 +364,22 @@ export default function DashboardPage() {
 
   const { kpis, entities } = data;
 
-  const monthlyData = kpis.umsatz.monthly.map((u, i) => ({
-    month: MONTHS[i],
-    umsatzPlan: u.plan,
-    umsatzActual: u.actual,
-    ebitPlan: kpis.ebit.monthly[i]?.plan ?? 0,
-    ebitActual: kpis.ebit.monthly[i]?.actual ?? 0,
-  }));
+  const monthlyData = useMemo(() => {
+    let umsatzPlanCum = 0, umsatzActualCum = 0, ebitPlanCum = 0, ebitActualCum = 0;
+    return kpis.umsatz.monthly.map((u, i) => {
+      umsatzPlanCum += u.plan;
+      umsatzActualCum += u.actual;
+      ebitPlanCum += kpis.ebit.monthly[i]?.plan ?? 0;
+      ebitActualCum += kpis.ebit.monthly[i]?.actual ?? 0;
+      return {
+        month: MONTHS[i],
+        umsatzPlan: showCumulative ? umsatzPlanCum : u.plan,
+        umsatzActual: showCumulative ? umsatzActualCum : u.actual,
+        ebitPlan: showCumulative ? ebitPlanCum : (kpis.ebit.monthly[i]?.plan ?? 0),
+        ebitActual: showCumulative ? ebitActualCum : (kpis.ebit.monthly[i]?.actual ?? 0),
+      };
+    });
+  }, [kpis, showCumulative]);
 
   const marginData = kpis.ebitMargin.monthly.map((m, i) => ({
     month: MONTHS[i],
@@ -338,9 +449,7 @@ export default function DashboardPage() {
               onChange={(e) => setSelectedEntity(e.target.value)}
               className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
             >
-              {(userInfo?.isAdmin || userInfo?.viewableEntityCodes?.includes("group")) && (
-                <option value="group">Group</option>
-              )}
+              <option value="group">Gruppe (Gesamt)</option>
               {(userInfo?.isAdmin ? entities : userInfo?.entities || []).map((e) => (
                 <option key={e.code} value={e.code}>
                   {e.name}
@@ -431,6 +540,9 @@ export default function DashboardPage() {
           plan={kpis.umsatz.plan}
           variance={kpis.umsatz.variance}
           variancePercent={kpis.umsatz.variancePercent}
+          sparklineData={kpis.umsatz.monthly.map(m => m.actual)}
+          sparklineColor="#10b981"
+          delay={0}
           icon={
             <svg className="h-6 w-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -443,6 +555,9 @@ export default function DashboardPage() {
           plan={kpis.ebit.plan}
           variance={kpis.ebit.variance}
           variancePercent={kpis.ebit.variancePercent}
+          sparklineData={kpis.ebit.monthly.map(m => m.actual)}
+          sparklineColor="#0ea5e9"
+          delay={50}
           icon={
             <svg className="h-6 w-6 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -454,6 +569,9 @@ export default function DashboardPage() {
           actual={kpis.ebitMargin.actual}
           plan={kpis.ebitMargin.plan}
           format="percent"
+          sparklineData={kpis.ebitMargin.monthly.map(m => m.actual)}
+          sparklineColor="#8b5cf6"
+          delay={100}
           icon={
             <svg className="h-6 w-6 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
@@ -467,6 +585,9 @@ export default function DashboardPage() {
           variance={kpis.headcount.variance}
           variancePercent={kpis.headcount.variancePercent}
           format="number"
+          sparklineData={kpis.headcount.monthly.map(m => m.actual)}
+          sparklineColor="#f59e0b"
+          delay={150}
           icon={
             <svg className="h-6 w-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -521,9 +642,26 @@ export default function DashboardPage() {
         </div>
       </section>
 
+      {/* Chart Controls */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => setShowCumulative(!showCumulative)}
+          className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+            showCumulative 
+              ? "bg-sky-500 text-white shadow-lg shadow-sky-500/25" 
+              : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 ring-1 ring-slate-200 dark:ring-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700"
+          }`}
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          {showCumulative ? "Kumuliert" : "Monatlich"}
+        </button>
+      </div>
+
       {/* Charts Row 1 */}
       <section className="grid gap-6 lg:grid-cols-2">
-        <ChartCard title="Umsatz: Plan vs. IST/FC">
+        <ChartCard title={`Umsatz: Plan vs. IST/FC ${showCumulative ? "(Kumuliert)" : ""}`}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={monthlyData} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
               <CartesianGrid stroke="#e2e8f0" strokeDasharray="4 4" vertical={false} />
@@ -537,7 +675,7 @@ export default function DashboardPage() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="EBIT: Plan vs. IST/FC">
+        <ChartCard title={`EBIT: Plan vs. IST/FC ${showCumulative ? "(Kumuliert)" : ""}`}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={monthlyData} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
               <CartesianGrid stroke="#e2e8f0" strokeDasharray="4 4" vertical={false} />
@@ -607,35 +745,64 @@ export default function DashboardPage() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <div className="rounded-2xl bg-white p-6 shadow-lg ring-1 ring-slate-200/60 lg:col-span-2">
-          <h3 className="mb-4 text-base font-semibold text-slate-900">Einheiten-Übersicht</h3>
+        <div className="rounded-2xl bg-white dark:bg-slate-800 p-6 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700 lg:col-span-2">
+          <h3 className="mb-4 text-base font-semibold text-slate-900 dark:text-white">Einheiten-Übersicht</h3>
           <div className="overflow-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-200 text-left">
-                  <th className="pb-3 font-semibold text-slate-600">Einheit</th>
-                  <th className="pb-3 text-right font-semibold text-slate-600">Umsatz</th>
-                  <th className="pb-3 text-right font-semibold text-slate-600">EBIT</th>
-                  <th className="pb-3 text-right font-semibold text-slate-600">Marge</th>
-                  <th className="pb-3 text-right font-semibold text-slate-600">HC</th>
+                <tr className="border-b border-slate-200 dark:border-slate-700 text-left">
+                  <th className="pb-3 font-semibold text-slate-600 dark:text-slate-400">Einheit</th>
+                  <th 
+                    className="pb-3 text-right font-semibold text-slate-600 dark:text-slate-400 cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 transition-colors select-none"
+                    onClick={() => toggleSort("umsatz")}
+                  >
+                    Umsatz<SortIcon column="umsatz" />
+                  </th>
+                  <th 
+                    className="pb-3 text-right font-semibold text-slate-600 dark:text-slate-400 cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 transition-colors select-none"
+                    onClick={() => toggleSort("ebit")}
+                  >
+                    EBIT<SortIcon column="ebit" />
+                  </th>
+                  <th 
+                    className="pb-3 text-right font-semibold text-slate-600 dark:text-slate-400 cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 transition-colors select-none"
+                    onClick={() => toggleSort("ebitMargin")}
+                  >
+                    Marge<SortIcon column="ebitMargin" />
+                  </th>
+                  <th 
+                    className="pb-3 text-right font-semibold text-slate-600 dark:text-slate-400 cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 transition-colors select-none"
+                    onClick={() => toggleSort("headcount")}
+                  >
+                    HC<SortIcon column="headcount" />
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                {entities
-                  .sort((a, b) => b.umsatz - a.umsatz)
-                  .map((e) => (
-                    <tr key={e.code} className="hover:bg-slate-50">
-                      <td className="py-3 font-medium text-slate-900">{e.name}</td>
-                      <td className="py-3 text-right tabular-nums text-slate-700">{formatCurrency(e.umsatz)}</td>
-                      <td className={`py-3 text-right tabular-nums ${e.ebit < 0 ? "text-rose-600" : "text-slate-700"}`}>
-                        {formatCurrency(e.ebit)}
-                      </td>
-                      <td className={`py-3 text-right tabular-nums ${e.ebitMargin < 0 ? "text-rose-600" : "text-slate-700"}`}>
-                        {formatPercent(e.ebitMargin)}
-                      </td>
-                      <td className="py-3 text-right tabular-nums text-slate-700">{e.headcount}</td>
-                    </tr>
-                  ))}
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                {sortedEntities.map((e, idx) => (
+                  <tr 
+                    key={e.code} 
+                    className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                  >
+                    <td className="py-3 font-medium text-slate-900 dark:text-white">
+                      <span className="inline-flex items-center gap-2">
+                        <span 
+                          className="w-2 h-2 rounded-full" 
+                          style={{ backgroundColor: COLORS[idx % COLORS.length] }}
+                        />
+                        {e.name}
+                      </span>
+                    </td>
+                    <td className="py-3 text-right tabular-nums text-slate-700 dark:text-slate-300">{formatCurrency(e.umsatz)}</td>
+                    <td className={`py-3 text-right tabular-nums ${e.ebit < 0 ? "text-rose-600 dark:text-rose-400" : "text-slate-700 dark:text-slate-300"}`}>
+                      {formatCurrency(e.ebit)}
+                    </td>
+                    <td className={`py-3 text-right tabular-nums ${e.ebitMargin < 0 ? "text-rose-600 dark:text-rose-400" : "text-slate-700 dark:text-slate-300"}`}>
+                      {formatPercent(e.ebitMargin)}
+                    </td>
+                    <td className="py-3 text-right tabular-nums text-slate-700 dark:text-slate-300">{e.headcount}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
