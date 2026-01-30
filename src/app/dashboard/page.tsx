@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import {
   BarChart,
   Bar,
@@ -256,6 +256,11 @@ export default function DashboardPage() {
   const [showCumulative, setShowCumulative] = useState(false);
   const [sortColumn, setSortColumn] = useState<"umsatz" | "ebit" | "ebitMargin" | "headcount">("umsatz");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedEntityDetail, setSelectedEntityDetail] = useState<string | null>(null);
+  const [entityDetailData, setEntityDetailData] = useState<KpiData | null>(null);
+  const [loadingEntityDetail, setLoadingEntityDetail] = useState(false);
 
   useEffect(() => {
     // Load user info and years
@@ -271,36 +276,87 @@ export default function DashboardPage() {
     }).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
+  const loadData = useCallback(async (showRefresh = false) => {
+    try {
+      if (showRefresh) {
+        setIsRefreshing(true);
+      } else {
         setLoading(true);
-        const settings = await fetch("/api/settings/forecast-cutoff").then((r) => r.json());
-        const cm = Number(settings?.cutoffMonth) || 12;
-        setCutoffMonth(cm);
+      }
+      const settings = await fetch("/api/settings/forecast-cutoff").then((r) => r.json());
+      const cm = Number(settings?.cutoffMonth) || 12;
+      setCutoffMonth(cm);
 
-        const entityParam = selectedEntity !== "group" ? `&entity=${selectedEntity}` : "";
-        const res = await fetch(`/api/kpis?year=${year}&cutoffMonth=${cm}${entityParam}`);
-        if (!res.ok) throw new Error("Failed to load KPIs");
-        const json = await res.json();
-        setData(json);
+      const entityParam = selectedEntity !== "group" ? `&entity=${selectedEntity}` : "";
+      const res = await fetch(`/api/kpis?year=${year}&cutoffMonth=${cm}${entityParam}`);
+      if (!res.ok) throw new Error("Failed to load KPIs");
+      const json = await res.json();
+      setData(json);
+      setLastUpdated(new Date());
 
-        if (compareYear && compareYear !== year) {
-          const compareRes = await fetch(`/api/kpis?year=${compareYear}&cutoffMonth=${cm}${entityParam}`);
-          if (compareRes.ok) {
-            setCompareData(await compareRes.json());
-          }
-        } else {
-          setCompareData(null);
+      if (compareYear && compareYear !== year) {
+        const compareRes = await fetch(`/api/kpis?year=${compareYear}&cutoffMonth=${cm}${entityParam}`);
+        if (compareRes.ok) {
+          setCompareData(await compareRes.json());
         }
-      } catch (e) {
-        setError(String(e));
-      } finally {
-        setLoading(false);
+      } else {
+        setCompareData(null);
+      }
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [year, compareYear, selectedEntity]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+      
+      if (e.key === "r" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        loadData(true);
+      }
+      if (e.key === "c" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        setShowCumulative(prev => !prev);
+      }
+      if (e.key === "Escape") {
+        setSelectedEntityDetail(null);
       }
     };
-    void load();
-  }, [year, compareYear, selectedEntity]);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [loadData]);
+
+  // Load entity detail data when modal opens
+  useEffect(() => {
+    if (!selectedEntityDetail) {
+      setEntityDetailData(null);
+      return;
+    }
+    const loadEntityDetail = async () => {
+      setLoadingEntityDetail(true);
+      try {
+        const res = await fetch(`/api/kpis?year=${year}&cutoffMonth=${cutoffMonth}&entity=${selectedEntityDetail}`);
+        if (res.ok) {
+          setEntityDetailData(await res.json());
+        }
+      } catch (e) {
+        console.error("Failed to load entity detail", e);
+      } finally {
+        setLoadingEntityDetail(false);
+      }
+    };
+    loadEntityDetail();
+  }, [selectedEntityDetail, year, cutoffMonth]);
 
   const exportToExcel = () => {
     if (!data) return;
@@ -415,7 +471,20 @@ export default function DashboardPage() {
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">KPI Dashboard</h1>
             <p className="mt-1 text-slate-600 dark:text-slate-400">
               Übersicht aller wichtigen Kennzahlen für {year} (IST bis Monat {cutoffMonth})
+              {lastUpdated && (
+                <span className="ml-2 text-xs text-slate-400 dark:text-slate-500">
+                  • Aktualisiert {lastUpdated.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}
+                </span>
+              )}
             </p>
+            <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-400 dark:text-slate-500">
+              <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-slate-700 px-2 py-0.5">
+                <kbd className="font-mono">R</kbd> Aktualisieren
+              </span>
+              <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-slate-700 px-2 py-0.5">
+                <kbd className="font-mono">C</kbd> Kumuliert
+              </span>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <select
@@ -456,6 +525,16 @@ export default function DashboardPage() {
                 </option>
               ))}
             </select>
+            <button
+              onClick={() => loadData(true)}
+              disabled={isRefreshing}
+              className="inline-flex items-center gap-2 rounded-lg bg-slate-100 dark:bg-slate-700 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 transition hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50"
+              title="Daten aktualisieren (R)"
+            >
+              <svg className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
             <button
               onClick={exportToExcel}
               className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-600"
@@ -782,7 +861,9 @@ export default function DashboardPage() {
                 {sortedEntities.map((e, idx) => (
                   <tr 
                     key={e.code} 
-                    className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                    className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer group"
+                    onClick={() => setSelectedEntityDetail(e.code)}
+                    title={`Details für ${e.name} anzeigen`}
                   >
                     <td className="py-3 font-medium text-slate-900 dark:text-white">
                       <span className="inline-flex items-center gap-2">
@@ -791,6 +872,9 @@ export default function DashboardPage() {
                           style={{ backgroundColor: COLORS[idx % COLORS.length] }}
                         />
                         {e.name}
+                        <svg className="h-3 w-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
                       </span>
                     </td>
                     <td className="py-3 text-right tabular-nums text-slate-700 dark:text-slate-300">{formatCurrency(e.umsatz)}</td>
@@ -808,6 +892,144 @@ export default function DashboardPage() {
           </div>
         </div>
       </section>
+
+      {/* Entity Detail Modal */}
+      {selectedEntityDetail && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={() => setSelectedEntityDetail(null)}
+        >
+          <div 
+            className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 p-6 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                  {entities.find(e => e.code === selectedEntityDetail)?.name || selectedEntityDetail}
+                </h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Detailansicht {year}</p>
+              </div>
+              <button
+                onClick={() => setSelectedEntityDetail(null)}
+                className="rounded-lg p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:text-slate-300 dark:hover:bg-slate-700 transition-colors"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-6">
+              {loadingEntityDetail ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-sky-500" />
+                </div>
+              ) : entityDetailData ? (
+                <div className="space-y-6">
+                  {/* KPI Summary */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 p-4">
+                      <div className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Umsatz</div>
+                      <div className="mt-1 text-xl font-bold text-emerald-900 dark:text-emerald-100">{formatCurrency(entityDetailData.kpis.umsatz.actual)}</div>
+                      <div className="text-xs text-emerald-600 dark:text-emerald-400">Plan: {formatCurrency(entityDetailData.kpis.umsatz.plan)}</div>
+                    </div>
+                    <div className="rounded-xl bg-sky-50 dark:bg-sky-900/20 p-4">
+                      <div className="text-xs font-medium text-sky-600 dark:text-sky-400">EBIT</div>
+                      <div className="mt-1 text-xl font-bold text-sky-900 dark:text-sky-100">{formatCurrency(entityDetailData.kpis.ebit.actual)}</div>
+                      <div className="text-xs text-sky-600 dark:text-sky-400">Plan: {formatCurrency(entityDetailData.kpis.ebit.plan)}</div>
+                    </div>
+                    <div className="rounded-xl bg-violet-50 dark:bg-violet-900/20 p-4">
+                      <div className="text-xs font-medium text-violet-600 dark:text-violet-400">EBIT-Marge</div>
+                      <div className="mt-1 text-xl font-bold text-violet-900 dark:text-violet-100">{formatPercent(entityDetailData.kpis.ebitMargin.actual)}</div>
+                      <div className="text-xs text-violet-600 dark:text-violet-400">Plan: {formatPercent(entityDetailData.kpis.ebitMargin.plan)}</div>
+                    </div>
+                    <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 p-4">
+                      <div className="text-xs font-medium text-amber-600 dark:text-amber-400">Headcount</div>
+                      <div className="mt-1 text-xl font-bold text-amber-900 dark:text-amber-100">{entityDetailData.kpis.headcount.actual}</div>
+                      <div className="text-xs text-amber-600 dark:text-amber-400">Plan: {entityDetailData.kpis.headcount.plan}</div>
+                    </div>
+                  </div>
+
+                  {/* Monthly Chart */}
+                  <div className="rounded-xl bg-slate-50 dark:bg-slate-700/50 p-4">
+                    <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Monatliche Entwicklung</h3>
+                    <div className="h-[200px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={entityDetailData.kpis.umsatz.monthly.map((u, i) => ({
+                          month: MONTHS[i],
+                          umsatz: u.actual,
+                          ebit: entityDetailData.kpis.ebit.monthly[i]?.actual ?? 0
+                        }))} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
+                          <CartesianGrid stroke="#e2e8f0" strokeDasharray="4 4" vertical={false} />
+                          <XAxis dataKey="month" tick={{ fontSize: 10, fill: "#64748b" }} tickLine={false} />
+                          <YAxis tick={{ fontSize: 10, fill: "#64748b" }} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                          <Tooltip contentStyle={tooltipStyle} />
+                          <Bar dataKey="umsatz" name="Umsatz" fill="#10b981" radius={[3, 3, 0, 0]} />
+                          <Bar dataKey="ebit" name="EBIT" fill="#0ea5e9" radius={[3, 3, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Monthly Table */}
+                  <div className="overflow-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-200 dark:border-slate-600">
+                          <th className="py-2 text-left font-medium text-slate-500 dark:text-slate-400">Monat</th>
+                          <th className="py-2 text-right font-medium text-slate-500 dark:text-slate-400">Umsatz</th>
+                          <th className="py-2 text-right font-medium text-slate-500 dark:text-slate-400">EBIT</th>
+                          <th className="py-2 text-right font-medium text-slate-500 dark:text-slate-400">Marge</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                        {entityDetailData.kpis.umsatz.monthly.map((u, i) => {
+                          const ebit = entityDetailData.kpis.ebit.monthly[i]?.actual ?? 0;
+                          const margin = u.actual > 0 ? (ebit / u.actual) * 100 : 0;
+                          return (
+                            <tr key={i} className={i < cutoffMonth ? "" : "opacity-50"}>
+                              <td className="py-2 text-slate-700 dark:text-slate-300">
+                                {MONTHS[i]}
+                                {i < cutoffMonth ? (
+                                  <span className="ml-1 text-xs text-emerald-500">IST</span>
+                                ) : (
+                                  <span className="ml-1 text-xs text-amber-500">FC</span>
+                                )}
+                              </td>
+                              <td className="py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{formatCurrency(u.actual)}</td>
+                              <td className={`py-2 text-right tabular-nums ${ebit < 0 ? "text-rose-500" : "text-slate-700 dark:text-slate-300"}`}>{formatCurrency(ebit)}</td>
+                              <td className={`py-2 text-right tabular-nums ${margin < 0 ? "text-rose-500" : "text-slate-700 dark:text-slate-300"}`}>{formatPercent(margin)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Quick Actions */}
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => {
+                        setSelectedEntity(selectedEntityDetail);
+                        setSelectedEntityDetail(null);
+                      }}
+                      className="inline-flex items-center gap-2 rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-600"
+                    >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      Als Hauptansicht wählen
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-slate-500">Keine Daten verfügbar</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
