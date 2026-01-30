@@ -22,6 +22,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const year = Number(searchParams.get("year")) || 2025;
     const cutoffMonth = Number(searchParams.get("cutoffMonth")) || 12;
+    const entityParam = searchParams.get("entity"); // specific entity or null for group
 
     // Helper functions
     const getEntityId = async (code: string): Promise<number | null> => {
@@ -68,35 +69,36 @@ export async function GET(request: Request) {
 
     const safePercent = (a: number, b: number) => (b !== 0 ? ((a - b) / Math.abs(b)) * 100 : 0);
 
-    // Get IDs
-    const gruppeId = await getEntityId("group");
+    // Get IDs - use "gruppe" for aggregated group totals, or specific entity if requested
+    const targetEntityCode = entityParam && entityParam !== "group" ? entityParam : "gruppe";
+    const targetEntityId = await getEntityId(targetEntityCode);
     const umsatzKpiId = await getKpiId("Umsatz", "umsatz");
     const ebitKpiId = await getKpiId("Ertrag", "ebit");
     const headcountKpiId = await getKpiId("Headcount", "headcount");
 
-    if (!gruppeId || !umsatzKpiId || !ebitKpiId || !headcountKpiId) {
+    if (!targetEntityId || !umsatzKpiId || !ebitKpiId || !headcountKpiId) {
       return NextResponse.json({ error: "Missing entity or KPI data" }, { status: 500 });
     }
 
-    // Get monthly data for Gruppe
+    // Get monthly data for target entity
     const [umsatzPlan, umsatzIst, umsatzFc, umsatzPriorYear] = await Promise.all([
-      getMonthlyValues(gruppeId, umsatzKpiId, "plan"),
-      getMonthlyValues(gruppeId, umsatzKpiId, "ist"),
-      getMonthlyValues(gruppeId, umsatzKpiId, "fc"),
-      getMonthlyValues(gruppeId, umsatzKpiId, "prior_year_kum"),
+      getMonthlyValues(targetEntityId, umsatzKpiId, "plan"),
+      getMonthlyValues(targetEntityId, umsatzKpiId, "ist"),
+      getMonthlyValues(targetEntityId, umsatzKpiId, "fc"),
+      getMonthlyValues(targetEntityId, umsatzKpiId, "prior_year_kum"),
     ]);
 
     const [ebitPlan, ebitIst, ebitFc, ebitPriorYear] = await Promise.all([
-      getMonthlyValues(gruppeId, ebitKpiId, "plan"),
-      getMonthlyValues(gruppeId, ebitKpiId, "ist"),
-      getMonthlyValues(gruppeId, ebitKpiId, "fc"),
-      getMonthlyValues(gruppeId, ebitKpiId, "prior_year_kum"),
+      getMonthlyValues(targetEntityId, ebitKpiId, "plan"),
+      getMonthlyValues(targetEntityId, ebitKpiId, "ist"),
+      getMonthlyValues(targetEntityId, ebitKpiId, "fc"),
+      getMonthlyValues(targetEntityId, ebitKpiId, "prior_year_kum"),
     ]);
 
     const [hcPlan, hcIst, hcFc] = await Promise.all([
-      getMonthlyValues(gruppeId, headcountKpiId, "plan"),
-      getMonthlyValues(gruppeId, headcountKpiId, "ist"),
-      getMonthlyValues(gruppeId, headcountKpiId, "fc"),
+      getMonthlyValues(targetEntityId, headcountKpiId, "plan"),
+      getMonthlyValues(targetEntityId, headcountKpiId, "ist"),
+      getMonthlyValues(targetEntityId, headcountKpiId, "fc"),
     ]);
 
     // Combine IST + FC
