@@ -41,6 +41,10 @@ export default function WorkbookClient(props: { sheetParam: string }) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showCopyPriorYear, setShowCopyPriorYear] = useState(false);
+  const [copySourceYear, setCopySourceYear] = useState<number | null>(null);
+  const [copying, setCopying] = useState(false);
 
   useEffect(() => {
     fetch("/api/years")
@@ -50,6 +54,14 @@ export default function WorkbookClient(props: { sheetParam: string }) {
         if (d.available?.length > 0 && !d.available.includes(year)) {
           setYear(d.available[0]);
         }
+      })
+      .catch(() => {});
+    
+    // Fetch user info to check admin status
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => {
+        setIsAdmin(d.role === "admin");
       })
       .catch(() => {});
   }, []);
@@ -105,16 +117,21 @@ export default function WorkbookClient(props: { sheetParam: string }) {
 
   const editableLabels = useMemo(() => {
     if (!data) return [] as string[];
-    if (data.sheet === "Umsatz") return ["Plan Umsatz", "IST/FC Umsatz"];
-    if (data.sheet === "Ertrag") return ["Plan EBIT", "IST/FC EBIT"];
-    return [
-      "Plan Headcount",
+    // Plan fields are admin-only
+    if (data.sheet === "Umsatz") {
+      return isAdmin ? ["Plan Umsatz", "IST/FC Umsatz"] : ["IST/FC Umsatz"];
+    }
+    if (data.sheet === "Ertrag") {
+      return isAdmin ? ["Plan EBIT", "IST/FC EBIT"] : ["IST/FC EBIT"];
+    }
+    const baseLabels = [
       "IST/FC headcount",
       "davon Umlagerelevant",
       "ohne Umlage Deutschland",
       "ohne Umlage"
     ];
-  }, [data]);
+    return isAdmin ? ["Plan Headcount", ...baseLabels] : baseLabels;
+  }, [data, isAdmin]);
 
   useEffect(() => {
     if (!data) return;
@@ -145,6 +162,37 @@ export default function WorkbookClient(props: { sheetParam: string }) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ month: m })
     });
+  };
+
+  const onCopyPriorYear = async () => {
+    if (!data || !copySourceYear) return;
+    
+    try {
+      setCopying(true);
+      const res = await fetch("/api/matrix", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          sheet: data.sheet,
+          sourceYear: copySourceYear,
+          targetYear: year
+        })
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        throw new Error(json?.error ?? `copy failed (${res.status})`);
+      }
+
+      setReloadKey((x) => x + 1);
+      setToast({ message: `Daten von ${copySourceYear} nach ${year} übernommen`, type: "success" });
+      setShowCopyPriorYear(false);
+      setCopySourceYear(null);
+    } catch (e) {
+      setToast({ message: String(e), type: "error" });
+    } finally {
+      setCopying(false);
+    }
   };
 
   const onSaveEdit = async () => {
@@ -301,21 +349,103 @@ export default function WorkbookClient(props: { sheetParam: string }) {
             {error && <span className="text-sm font-medium text-rose-600">{error}</span>}
           </div>
 
-          <button
-            type="button"
-            className={`ml-auto flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold shadow-sm transition ${
-              editMode
-                ? "bg-slate-900 text-white hover:bg-slate-800"
-                : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
-            }`}
-            onClick={() => setEditMode((v) => !v)}
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-            {editMode ? "Bearbeitung beenden" : "Daten bearbeiten"}
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            {isAdmin && (
+              <button
+                type="button"
+                className="flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-600"
+                onClick={() => {
+                  setShowCopyPriorYear(true);
+                  setCopySourceYear(year - 1);
+                }}
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+                Vorjahreswerte übernehmen
+              </button>
+            )}
+            <button
+              type="button"
+              className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold shadow-sm transition ${
+                editMode
+                  ? "bg-slate-900 text-white hover:bg-slate-800"
+                  : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+              }`}
+              onClick={() => setEditMode((v) => !v)}
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              {editMode ? "Bearbeitung beenden" : "Daten bearbeiten"}
+            </button>
+          </div>
         </div>
+
+        {/* Copy Prior Year Modal (Admin only) */}
+        {showCopyPriorYear && isAdmin && (
+          <div className="mt-4 rounded-xl border-2 border-dashed border-amber-200 bg-amber-50/50 p-5">
+            <div className="mb-4 flex items-center gap-2">
+              <div className="h-6 w-6 rounded-full bg-amber-500 flex items-center justify-center">
+                <svg className="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+              </div>
+              <h3 className="text-sm font-semibold text-slate-900">Vorjahreswerte übernehmen</h3>
+              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">Nur Admin</span>
+            </div>
+
+            <div className="flex flex-wrap items-end gap-4">
+              <label className="grid gap-1.5">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Quelljahr</span>
+                <select
+                  className="min-w-[120px] rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium shadow-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                  value={copySourceYear ?? year - 1}
+                  onChange={(e) => setCopySourceYear(Number(e.target.value))}
+                >
+                  {availableYears.filter(y => y !== year).map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+                <span className="font-semibold">{year}</span>
+              </div>
+
+              <div className="flex items-center rounded-lg bg-amber-100 px-3 py-2 text-xs text-amber-800">
+                <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                Bestehende Werte werden überschrieben!
+              </div>
+
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  type="button"
+                  className="rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-600 disabled:opacity-50"
+                  onClick={() => void onCopyPriorYear()}
+                  disabled={copying || !copySourceYear}
+                >
+                  {copying ? "Übernehme…" : "Übernehmen"}
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg bg-white px-4 py-2.5 text-sm font-medium text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50"
+                  onClick={() => {
+                    setShowCopyPriorYear(false);
+                    setCopySourceYear(null);
+                  }}
+                >
+                  Abbrechen
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Edit Panel */}
         {editMode && data ? (
