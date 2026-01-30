@@ -406,21 +406,10 @@ export default function DashboardPage() {
     </span>
   );
 
-  if (loading) {
-    return <LoadingSkeleton />;
-  }
-
-  if (error || !data) {
-    return (
-      <div className="rounded-2xl bg-rose-50 p-6 text-rose-700">
-        Fehler beim Laden der KPIs: {error}
-      </div>
-    );
-  }
-
-  const { kpis, entities } = data;
-
+  // useMemo must be called before any early returns to maintain hooks order
   const monthlyData = useMemo(() => {
+    if (!data) return [];
+    const kpis = data.kpis;
     let umsatzPlanCum = 0, umsatzActualCum = 0, ebitPlanCum = 0, ebitActualCum = 0;
     return kpis.umsatz.monthly.map((u, i) => {
       umsatzPlanCum += u.plan;
@@ -435,7 +424,21 @@ export default function DashboardPage() {
         ebitActual: showCumulative ? ebitActualCum : (kpis.ebit.monthly[i]?.actual ?? 0),
       };
     });
-  }, [kpis, showCumulative]);
+  }, [data, showCumulative]);
+
+  if (loading) {
+    return <LoadingSkeleton />;
+  }
+
+  if (error || !data) {
+    return (
+      <div className="rounded-2xl bg-rose-50 p-6 text-rose-700">
+        Fehler beim Laden der KPIs: {error}
+      </div>
+    );
+  }
+
+  const { kpis, entities } = data;
 
   const marginData = kpis.ebitMargin.monthly.map((m, i) => ({
     month: MONTHS[i],
