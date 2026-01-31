@@ -79,16 +79,29 @@ export default function ComparePage() {
               return sum;
             };
             
+            // Calculate average for headcount (employees are counted, not summed)
+            const avgRange = (arr: number[]) => {
+              let sum = 0;
+              let count = 0;
+              for (let i = monthFrom - 1; i < monthTo && i < arr.length; i++) {
+                if (arr[i] !== undefined && arr[i] !== null) {
+                  sum += arr[i];
+                  count++;
+                }
+              }
+              return count > 0 ? sum / count : 0;
+            };
+            
             const umsatzSum = sumRange(umsatzMonthly);
             const ebitSum = sumRange(ebitMonthly);
-            const headcountSum = sumRange(headcountMonthly);
+            const headcountAvg = avgRange(headcountMonthly);
             
             results.push({
               code: entityCode,
               name: entity?.name || entityCode,
               umsatz: umsatzSum,
               ebit: ebitSum,
-              headcount: headcountSum,
+              headcount: headcountAvg,
               margin: umsatzSum ? (ebitSum / umsatzSum) * 100 : 0,
               monthly: {
                 umsatz: umsatzMonthly,
