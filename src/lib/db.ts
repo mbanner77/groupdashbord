@@ -246,8 +246,8 @@ async function seedDataIfEmpty(client: PoolClient) {
     { id: 11, code: "rc4c", display_name: "RC4C", sort_order: 0, is_aggregate: 0 },
     { id: 12, code: "media", display_name: "Media", sort_order: 0, is_aggregate: 0 },
     { id: 13, code: "schweiz", display_name: "Schweiz", sort_order: 0, is_aggregate: 0 },
-    { id: 14, code: "albanien", display_name: "Albanien", sort_order: 0, is_aggregate: 0 },
-    { id: 15, code: "slovenien", display_name: "Slovenien", sort_order: 0, is_aggregate: 0 },
+    { id: 14, code: "slovenien", display_name: "Slovenien", sort_order: 0, is_aggregate: 0 },
+    { id: 15, code: "albanien", display_name: "Albanien", sort_order: 0, is_aggregate: 0 },
   ];
 
   for (const e of entities) {
