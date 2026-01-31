@@ -333,7 +333,6 @@ export async function getWorkbookSheet(params: {
     const ohneAF = applyCutoff(ohneIst, ohneFc, params.cutoffMonth);
 
     const priorYear = seriesFromMap({ map: headcountMap, scenario: "prior_year", entity, entities });
-    const priorYearCum = seriesFromMap({ map: headcountMap, scenario: "prior_year_kum", entity, entities });
 
     lines.push({ entityCode: entity.code, entityName: entity.name, label: "Plan Headcount", values: plan });
     lines.push({ entityCode: entity.code, entityName: entity.name, label: "IST/FC headcount", values: actualForecast });
@@ -341,7 +340,6 @@ export async function getWorkbookSheet(params: {
     lines.push({ entityCode: entity.code, entityName: entity.name, label: "ohne Umlage Deutschland", values: ohneDeAF });
     lines.push({ entityCode: entity.code, entityName: entity.name, label: "ohne Umlage", values: ohneAF });
     lines.push({ entityCode: entity.code, entityName: entity.name, label: "Vorjahr", values: priorYear });
-    lines.push({ entityCode: entity.code, entityName: entity.name, label: "Vorjahr kum", values: priorYearCum });
   }
 
   const gruppe = entities.find((e) => e.code === "gruppe") ?? entities[0];
