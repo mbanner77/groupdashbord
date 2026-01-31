@@ -16,6 +16,8 @@ type EntityData = {
   };
 };
 
+const MONTH_NAMES = ["Jan", "Feb", "Mrz", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+
 export default function ComparePage() {
   const [entities, setEntities] = useState<{ code: string; name: string; isAggregate: boolean }[]>([]);
   const [selectedEntities, setSelectedEntities] = useState<string[]>([]);
@@ -24,6 +26,8 @@ export default function ComparePage() {
   const [data, setData] = useState<EntityData[]>([]);
   const [loading, setLoading] = useState(false);
   const [kpi, setKpi] = useState<"umsatz" | "ebit" | "headcount">("umsatz");
+  const [monthFrom, setMonthFrom] = useState(1);
+  const [monthTo, setMonthTo] = useState(12);
 
   useEffect(() => {
     fetch("/api/years")
@@ -61,16 +65,34 @@ export default function ComparePage() {
           if (res.ok) {
             const d = await res.json();
             const entity = entities.find((e) => e.code === entityCode);
+            // Get monthly data
+            const umsatzMonthly = d.kpis?.umsatz?.monthly?.map((m: { actual: number }) => m.actual) || [];
+            const ebitMonthly = d.kpis?.ebit?.monthly?.map((m: { actual: number }) => m.actual) || [];
+            const headcountMonthly = d.kpis?.headcount?.monthly?.map((m: { actual: number }) => m.actual) || [];
+            
+            // Calculate sum for selected month range
+            const sumRange = (arr: number[]) => {
+              let sum = 0;
+              for (let i = monthFrom - 1; i < monthTo && i < arr.length; i++) {
+                sum += arr[i] || 0;
+              }
+              return sum;
+            };
+            
+            const umsatzSum = sumRange(umsatzMonthly);
+            const ebitSum = sumRange(ebitMonthly);
+            const headcountSum = sumRange(headcountMonthly);
+            
             results.push({
               code: entityCode,
               name: entity?.name || entityCode,
-              umsatz: d.kpis?.umsatz?.actual || 0,
-              ebit: d.kpis?.ebit?.actual || 0,
-              headcount: d.kpis?.headcount?.actual || 0,
-              margin: d.kpis?.umsatz?.actual ? (d.kpis?.ebit?.actual / d.kpis?.umsatz?.actual) * 100 : 0,
+              umsatz: umsatzSum,
+              ebit: ebitSum,
+              headcount: headcountSum,
+              margin: umsatzSum ? (ebitSum / umsatzSum) * 100 : 0,
               monthly: {
-                umsatz: d.kpis?.umsatz?.monthly?.map((m: { actual: number }) => m.actual) || [],
-                ebit: d.kpis?.ebit?.monthly?.map((m: { actual: number }) => m.actual) || [],
+                umsatz: umsatzMonthly,
+                ebit: ebitMonthly,
               },
             });
           }
@@ -84,7 +106,7 @@ export default function ComparePage() {
     };
 
     loadData();
-  }, [selectedEntities, year, entities]);
+  }, [selectedEntities, year, entities, monthFrom, monthTo]);
 
   const toggleEntity = (code: string) => {
     setSelectedEntities((prev) =>
@@ -107,20 +129,44 @@ export default function ComparePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Entity Vergleich</h1>
           <p className="mt-1 text-sm text-slate-500">Vergleiche mehrere Einheiten nebeneinander</p>
         </div>
-        <select
-          value={year}
-          onChange={(e) => setYear(Number(e.target.value))}
-          className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-        >
-          {availableYears.map((y) => (
-            <option key={y} value={y}>{y}</option>
-          ))}
-        </select>
+        <div className="flex items-center gap-3">
+          <select
+            value={year}
+            onChange={(e) => setYear(Number(e.target.value))}
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+          >
+            {availableYears.map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+            <span className="text-xs text-slate-500">Monate:</span>
+            <select
+              value={monthFrom}
+              onChange={(e) => setMonthFrom(Number(e.target.value))}
+              className="border-0 bg-transparent text-sm font-medium focus:outline-none dark:text-white"
+            >
+              {MONTH_NAMES.map((m, i) => (
+                <option key={i} value={i + 1}>{m}</option>
+              ))}
+            </select>
+            <span className="text-slate-400">–</span>
+            <select
+              value={monthTo}
+              onChange={(e) => setMonthTo(Number(e.target.value))}
+              className="border-0 bg-transparent text-sm font-medium focus:outline-none dark:text-white"
+            >
+              {MONTH_NAMES.map((m, i) => (
+                <option key={i} value={i + 1} disabled={i + 1 < monthFrom}>{m}</option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* Entity Selection */}
