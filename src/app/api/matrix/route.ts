@@ -167,33 +167,99 @@ export async function POST(request: Request) {
 
       // Get entities to copy
       let entityCondition = "AND e.is_aggregate = 0";
-      const queryParams: (string | number)[] = [sourceYear, kpiRow.id];
+      const entityQueryParams: (string | number)[] = [];
       
       if (entityCode) {
-        entityCondition += " AND e.code = $3";
-        queryParams.push(entityCode);
+        entityCondition += " AND e.code = $1";
+        entityQueryParams.push(entityCode);
       }
 
-      // Get source year data
-      const sourceData = await allAsync<{ entity_id: number; month: number; scenario: string; value: number }>(
-        `SELECT v.entity_id, v.month, v.scenario, v.value 
-         FROM values_monthly v 
-         JOIN entities e ON v.entity_id = e.id 
-         WHERE v.year = $1 AND v.kpi_id = $2 ${entityCondition}`,
-        queryParams
+      // Get all non-aggregate entities
+      const entities = await allAsync<{ id: number; code: string }>(
+        `SELECT id, code FROM entities e WHERE 1=1 ${entityCondition}`,
+        entityQueryParams
       );
 
-      // Copy to target year
-      for (const row of sourceData) {
-        // Map scenario: ist -> ist, fc -> fc, plan -> plan
-        await execAsync(
-          `INSERT INTO values_monthly (year, month, entity_id, kpi_id, scenario, value, updated_at) 
-           VALUES ($1, $2, $3, $4, $5, $6, $7) 
-           ON CONFLICT(year, month, entity_id, kpi_id, scenario) 
-           DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
-          [targetYear, row.month, row.entity_id, kpiRow.id, row.scenario, row.value, now]
+      for (const entity of entities) {
+        // 1. Get cumulative IST from source year (last month = total)
+        //    Calculate cumulative as sum of ist values for all months
+        const istData = await allAsync<{ month: number; value: number }>(
+          `SELECT month, value FROM values_monthly 
+           WHERE year = $1 AND entity_id = $2 AND kpi_id = $3 AND scenario = 'ist'
+           ORDER BY month`,
+          [sourceYear, entity.id, kpiRow.id]
         );
-        copied++;
+        
+        // Calculate cumulative values
+        let cumulative = 0;
+        const cumulativeValues: number[] = [];
+        for (let m = 1; m <= 12; m++) {
+          const monthVal = istData.find(d => d.month === m)?.value ?? 0;
+          cumulative += monthVal;
+          cumulativeValues.push(cumulative);
+        }
+
+        // 2. Get Plan values from source year
+        const planData = await allAsync<{ month: number; value: number }>(
+          `SELECT month, value FROM values_monthly 
+           WHERE year = $1 AND entity_id = $2 AND kpi_id = $3 AND scenario = 'plan'`,
+          [sourceYear, entity.id, kpiRow.id]
+        );
+
+        // 3. Write to target year
+        for (let month = 1; month <= 12; month++) {
+          // Write prior_year_kum (cumulative IST from source year)
+          await execAsync(
+            `INSERT INTO values_monthly (year, month, entity_id, kpi_id, scenario, value, updated_at) 
+             VALUES ($1, $2, $3, $4, 'prior_year_kum', $5, $6) 
+             ON CONFLICT(year, month, entity_id, kpi_id, scenario) 
+             DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+            [targetYear, month, entity.id, kpiRow.id, cumulativeValues[month - 1] ?? 0, now]
+          );
+          copied++;
+
+          // Write plan (copy from source year)
+          const planVal = planData.find(d => d.month === month)?.value ?? 0;
+          await execAsync(
+            `INSERT INTO values_monthly (year, month, entity_id, kpi_id, scenario, value, updated_at) 
+             VALUES ($1, $2, $3, $4, 'plan', $5, $6) 
+             ON CONFLICT(year, month, entity_id, kpi_id, scenario) 
+             DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+            [targetYear, month, entity.id, kpiRow.id, planVal, now]
+          );
+          copied++;
+
+          // Set IST to 0
+          await execAsync(
+            `INSERT INTO values_monthly (year, month, entity_id, kpi_id, scenario, value, updated_at) 
+             VALUES ($1, $2, $3, $4, 'ist', $5, $6) 
+             ON CONFLICT(year, month, entity_id, kpi_id, scenario) 
+             DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+            [targetYear, month, entity.id, kpiRow.id, 0, now]
+          );
+          copied++;
+
+          // Set FC to 0
+          await execAsync(
+            `INSERT INTO values_monthly (year, month, entity_id, kpi_id, scenario, value, updated_at) 
+             VALUES ($1, $2, $3, $4, 'fc', $5, $6) 
+             ON CONFLICT(year, month, entity_id, kpi_id, scenario) 
+             DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+            [targetYear, month, entity.id, kpiRow.id, 0, now]
+          );
+          copied++;
+
+          // Set prior_year to monthly IST from source year (not cumulative)
+          const priorMonthVal = istData.find(d => d.month === month)?.value ?? 0;
+          await execAsync(
+            `INSERT INTO values_monthly (year, month, entity_id, kpi_id, scenario, value, updated_at) 
+             VALUES ($1, $2, $3, $4, 'prior_year', $5, $6) 
+             ON CONFLICT(year, month, entity_id, kpi_id, scenario) 
+             DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+            [targetYear, month, entity.id, kpiRow.id, priorMonthVal, now]
+          );
+          copied++;
+        }
       }
     }
 
