@@ -337,8 +337,6 @@ export async function getWorkbookSheet(params: {
 
     lines.push({ entityCode: entity.code, entityName: entity.name, label: "Plan Headcount", values: plan });
     lines.push({ entityCode: entity.code, entityName: entity.name, label: "IST/FC headcount", values: actualForecast });
-    lines.push({ entityCode: entity.code, entityName: entity.name, label: "kum Plan", values: cumPlan });
-    lines.push({ entityCode: entity.code, entityName: entity.name, label: "kum IST / FC", values: cumActualForecast });
     lines.push({ entityCode: entity.code, entityName: entity.name, label: "davon Umlagerelevant", values: umlAF });
     lines.push({ entityCode: entity.code, entityName: entity.name, label: "ohne Umlage Deutschland", values: ohneDeAF });
     lines.push({ entityCode: entity.code, entityName: entity.name, label: "ohne Umlage", values: ohneAF });
