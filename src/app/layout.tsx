@@ -6,6 +6,8 @@ import { cookies } from "next/headers";
 import { Navigation } from "../components/Navigation";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { LogoutButton } from "../components/LogoutButton";
+import { KeyboardShortcuts } from "../components/KeyboardShortcuts";
+import { ServiceWorkerRegistration } from "../components/ServiceWorkerRegistration";
 import { getCurrentUser } from "../lib/auth";
 
 const inter = Inter({ subsets: ["latin"], display: "swap" });
@@ -44,6 +46,13 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
   return (
     <html lang="de" className={inter.className}>
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#0ea5e9" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <link rel="apple-touch-icon" href="/rc-logo.png" />
+      </head>
       <body className="flex min-h-screen flex-col bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
         {isLoggedIn && (
           <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/95">
@@ -71,6 +80,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             </div>
           </header>
         )}
+
+        {isLoggedIn && <KeyboardShortcuts />}
+        <ServiceWorkerRegistration />
 
         {isLoggedIn ? (
           <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-8">{children}</main>
