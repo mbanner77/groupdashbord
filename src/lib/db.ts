@@ -183,10 +183,56 @@ async function migrate(client: PoolClient) {
     );
   }
 
+  // Fix entity ID mismatches (one-time migration)
+  await fixEntityIdMismatch(client);
+
   // Seed data if tables are empty
   await seedDataIfEmpty(client);
   
   migrated = true;
+}
+
+async function fixEntityIdMismatch(client: PoolClient) {
+  // Check if migration is needed by looking at entity with code 'rps'
+  const rpsCheck = await client.query("SELECT id FROM entities WHERE code = 'rps'");
+  if (rpsCheck.rows.length === 0) return; // No data yet
+  
+  const rpsId = rpsCheck.rows[0].id;
+  if (rpsId === 8) return; // Already correct, no migration needed
+
+  console.log("Fixing entity ID mismatch...");
+
+  // The wrong mapping was:
+  // DB has: rcm=8, media=9, dec=10, schweiz=11, rps=12, rc4c=13
+  // Correct: rps=8, rcm=9, dec=10, rc4c=11, media=12, schweiz=13
+
+  // Strategy: Update entity IDs using temporary IDs to avoid conflicts
+  const corrections = [
+    { code: "rps", wrongId: 12, correctId: 8 },
+    { code: "rcm", wrongId: 8, correctId: 9 },
+    { code: "rc4c", wrongId: 13, correctId: 11 },
+    { code: "media", wrongId: 9, correctId: 12 },
+    { code: "schweiz", wrongId: 11, correctId: 13 },
+  ];
+
+  // Step 1: Move entities to temporary IDs (1000+)
+  for (const c of corrections) {
+    const tempId = 1000 + c.correctId;
+    await client.query("UPDATE values_monthly SET entity_id = $1 WHERE entity_id = $2", [tempId, c.wrongId]);
+    await client.query("UPDATE entities SET id = $1 WHERE code = $2", [tempId, c.code]);
+  }
+
+  // Step 2: Move from temporary IDs to correct IDs
+  for (const c of corrections) {
+    const tempId = 1000 + c.correctId;
+    await client.query("UPDATE entities SET id = $1 WHERE id = $2", [c.correctId, tempId]);
+    await client.query("UPDATE values_monthly SET entity_id = $1 WHERE entity_id = $2", [c.correctId, tempId]);
+  }
+
+  // Step 3: Reset sequence
+  await client.query("SELECT setval('entities_id_seq', 15, true)");
+
+  console.log("Entity ID mismatch fixed!");
 }
 
 async function seedDataIfEmpty(client: PoolClient) {
