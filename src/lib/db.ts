@@ -171,6 +171,36 @@ async function migrate(client: PoolClient) {
     );
   `);
 
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      username TEXT NOT NULL,
+      action TEXT NOT NULL,
+      entity_type TEXT NOT NULL,
+      entity_id INTEGER,
+      entity_name TEXT,
+      old_value TEXT,
+      new_value TEXT,
+      details TEXT,
+      created_at TEXT NOT NULL
+    );
+  `);
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS comments (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      entity_id INTEGER NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
+      kpi_id INTEGER REFERENCES kpis(id) ON DELETE CASCADE,
+      year INTEGER NOT NULL,
+      month INTEGER,
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+
   // Create default admin user if not exists
   const adminExists = await client.query("SELECT id FROM users WHERE username = 'admin'");
   if (adminExists.rows.length === 0) {

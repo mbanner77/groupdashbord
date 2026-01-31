@@ -195,6 +195,25 @@ export default function UsersAdminPage() {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Benutzerverwaltung</h1>
           <p className="mt-1 text-sm text-slate-500">Benutzer und Berechtigungen verwalten</p>
         </div>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/import"
+            className="flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-600"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            Excel Import
+          </Link>
+          <Link
+            href="/admin/audit"
+            className="flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Audit-Log
+          </Link>
         <button
           onClick={() => {
             setEditingUser(null);
@@ -208,6 +227,7 @@ export default function UsersAdminPage() {
           </svg>
           Neuer Benutzer
         </button>
+        </div>
       </div>
 
       {error && (
