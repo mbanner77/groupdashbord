@@ -1,5 +1,6 @@
 import WorkbookClient from "./workbook-client";
 
-export default function WorkbookSheetPage({ params }: { params: { sheet: string } }) {
-  return <WorkbookClient sheetParam={params.sheet} />;
+export default async function WorkbookSheetPage({ params }: { params: Promise<{ sheet: string }> }) {
+  const { sheet } = await params;
+  return <WorkbookClient sheetParam={sheet} />;
 }
