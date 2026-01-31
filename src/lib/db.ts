@@ -198,7 +198,7 @@ async function seedDataIfEmpty(client: PoolClient) {
 
   console.log("Seeding database with initial data...");
 
-  // Seed entities
+  // Seed entities - IDs must match seed-data.json!
   const entities = [
     { id: 1, code: "gruppe", display_name: "Gruppe", sort_order: 0, is_aggregate: 1 },
     { id: 2, code: "rcc", display_name: "RCC", sort_order: 0, is_aggregate: 0 },
@@ -207,12 +207,12 @@ async function seedDataIfEmpty(client: PoolClient) {
     { id: 5, code: "rso", display_name: "RSO", sort_order: 0, is_aggregate: 0 },
     { id: 6, code: "rbc", display_name: "RBC", sort_order: 0, is_aggregate: 0 },
     { id: 7, code: "group", display_name: "Group", sort_order: 0, is_aggregate: 0 },
-    { id: 8, code: "rcm", display_name: "RCM", sort_order: 0, is_aggregate: 0 },
-    { id: 9, code: "media", display_name: "Media", sort_order: 0, is_aggregate: 0 },
+    { id: 8, code: "rps", display_name: "rps", sort_order: 0, is_aggregate: 0 },
+    { id: 9, code: "rcm", display_name: "RCM", sort_order: 0, is_aggregate: 0 },
     { id: 10, code: "dec", display_name: "DEC", sort_order: 0, is_aggregate: 0 },
-    { id: 11, code: "schweiz", display_name: "Schweiz", sort_order: 0, is_aggregate: 0 },
-    { id: 12, code: "rps", display_name: "rps", sort_order: 0, is_aggregate: 0 },
-    { id: 13, code: "rc4c", display_name: "RC4C", sort_order: 0, is_aggregate: 0 },
+    { id: 11, code: "rc4c", display_name: "RC4C", sort_order: 0, is_aggregate: 0 },
+    { id: 12, code: "media", display_name: "Media", sort_order: 0, is_aggregate: 0 },
+    { id: 13, code: "schweiz", display_name: "Schweiz", sort_order: 0, is_aggregate: 0 },
     { id: 14, code: "albanien", display_name: "Albanien", sort_order: 0, is_aggregate: 0 },
     { id: 15, code: "slovenien", display_name: "Slovenien", sort_order: 0, is_aggregate: 0 },
   ];
