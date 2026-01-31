@@ -193,25 +193,30 @@ async function migrate(client: PoolClient) {
 }
 
 async function fixEntityIdMismatch(client: PoolClient) {
-  // Check if migration is needed by looking at entity with code 'rps'
+  // Check if migration is needed
   const rpsCheck = await client.query("SELECT id FROM entities WHERE code = 'rps'");
+  const albanienCheck = await client.query("SELECT id FROM entities WHERE code = 'albanien'");
+  
   if (rpsCheck.rows.length === 0) return; // No data yet
   
-  const rpsId = rpsCheck.rows[0].id;
-  if (rpsId === 8) return; // Already correct, no migration needed
+  const rpsId = rpsCheck.rows[0]?.id;
+  const albanienId = albanienCheck.rows[0]?.id;
+  
+  // Check if IDs are correct: rps=8, albanien=15
+  const rpsCorrect = rpsId === 8;
+  const albanienCorrect = albanienId === 15;
+  
+  if (rpsCorrect && albanienCorrect) return; // All correct, no migration needed
 
   console.log("Fixing entity ID mismatch - deleting and reseeding data...");
+  console.log(`Current: rps=${rpsId} (should be 8), albanien=${albanienId} (should be 15)`);
 
   // The safest approach: Delete all data and let it reseed with correct IDs
-  // This avoids PostgreSQL primary key update issues
-  
   try {
-    // Delete in correct order due to foreign keys
     await client.query("DELETE FROM values_monthly");
     await client.query("DELETE FROM entities");
     await client.query("DELETE FROM kpis");
     
-    // Reset sequences
     await client.query("SELECT setval('entities_id_seq', 1, false)");
     await client.query("SELECT setval('kpis_id_seq', 1, false)");
     await client.query("SELECT setval('values_monthly_id_seq', 1, false)");
