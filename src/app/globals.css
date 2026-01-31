@@ -137,6 +137,65 @@
   }
 }
 
+/* Mobile responsive improvements */
+@media (max-width: 640px) {
+  .mobile-full-width {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .mobile-stack {
+    flex-direction: column !important;
+  }
+
+  .mobile-hide {
+    display: none !important;
+  }
+
+  .mobile-text-sm {
+    font-size: 0.875rem !important;
+  }
+
+  .mobile-p-2 {
+    padding: 0.5rem !important;
+  }
+
+  /* Better touch targets */
+  button, a, select, input {
+    min-height: 44px;
+  }
+
+  /* Prevent horizontal scroll */
+  body {
+    overflow-x: hidden;
+  }
+
+  /* Full width tables with horizontal scroll */
+  table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  /* Smaller text in tables */
+  table th,
+  table td {
+    font-size: 0.75rem;
+    padding: 0.5rem;
+  }
+}
+
+/* Tablet adjustments */
+@media (max-width: 1024px) {
+  .tablet-stack {
+    flex-direction: column !important;
+  }
+
+  .tablet-full-width {
+    width: 100% !important;
+  }
+}
+
 /* Print styles for PDF export */
 @media print {
   body {
