@@ -65,10 +65,18 @@ export default function ComparePage() {
           if (res.ok) {
             const d = await res.json();
             const entity = entities.find((e) => e.code === entityCode);
-            // Get monthly data
-            const umsatzMonthly = d.kpis?.umsatz?.monthly?.map((m: { actual: number }) => m.actual) || [];
-            const ebitMonthly = d.kpis?.ebit?.monthly?.map((m: { actual: number }) => m.actual) || [];
-            const headcountMonthly = d.kpis?.headcount?.monthly?.map((m: { actual: number }) => m.actual) || [];
+            // Get monthly data - use actual, fallback to plan if actual is all zeros
+            const umsatzActualMonthly = d.kpis?.umsatz?.monthly?.map((m: { actual: number }) => m.actual) || [];
+            const umsatzPlanMonthly = d.kpis?.umsatz?.monthly?.map((m: { plan: number }) => m.plan) || [];
+            const umsatzMonthly = umsatzActualMonthly.some((v: number) => v > 0) ? umsatzActualMonthly : umsatzPlanMonthly;
+            
+            const ebitActualMonthly = d.kpis?.ebit?.monthly?.map((m: { actual: number }) => m.actual) || [];
+            const ebitPlanMonthly = d.kpis?.ebit?.monthly?.map((m: { plan: number }) => m.plan) || [];
+            const ebitMonthly = ebitActualMonthly.some((v: number) => v > 0) ? ebitActualMonthly : ebitPlanMonthly;
+            
+            const headcountActualMonthly = d.kpis?.headcount?.monthly?.map((m: { actual: number }) => m.actual) || [];
+            const headcountPlanMonthly = d.kpis?.headcount?.monthly?.map((m: { plan: number }) => m.plan) || [];
+            const headcountMonthly = headcountActualMonthly.some((v: number) => v > 0) ? headcountActualMonthly : headcountPlanMonthly;
             
             // Calculate sum for selected month range
             const sumRange = (arr: number[]) => {
