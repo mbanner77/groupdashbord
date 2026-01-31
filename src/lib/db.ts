@@ -200,39 +200,26 @@ async function fixEntityIdMismatch(client: PoolClient) {
   const rpsId = rpsCheck.rows[0].id;
   if (rpsId === 8) return; // Already correct, no migration needed
 
-  console.log("Fixing entity ID mismatch...");
+  console.log("Fixing entity ID mismatch - deleting and reseeding data...");
 
-  // The wrong mapping was:
-  // DB has: rcm=8, media=9, dec=10, schweiz=11, rps=12, rc4c=13
-  // Correct: rps=8, rcm=9, dec=10, rc4c=11, media=12, schweiz=13
-
-  // Strategy: Update entity IDs using temporary IDs to avoid conflicts
-  const corrections = [
-    { code: "rps", wrongId: 12, correctId: 8 },
-    { code: "rcm", wrongId: 8, correctId: 9 },
-    { code: "rc4c", wrongId: 13, correctId: 11 },
-    { code: "media", wrongId: 9, correctId: 12 },
-    { code: "schweiz", wrongId: 11, correctId: 13 },
-  ];
-
-  // Step 1: Move entities to temporary IDs (1000+)
-  for (const c of corrections) {
-    const tempId = 1000 + c.correctId;
-    await client.query("UPDATE values_monthly SET entity_id = $1 WHERE entity_id = $2", [tempId, c.wrongId]);
-    await client.query("UPDATE entities SET id = $1 WHERE code = $2", [tempId, c.code]);
+  // The safest approach: Delete all data and let it reseed with correct IDs
+  // This avoids PostgreSQL primary key update issues
+  
+  try {
+    // Delete in correct order due to foreign keys
+    await client.query("DELETE FROM values_monthly");
+    await client.query("DELETE FROM entities");
+    await client.query("DELETE FROM kpis");
+    
+    // Reset sequences
+    await client.query("SELECT setval('entities_id_seq', 1, false)");
+    await client.query("SELECT setval('kpis_id_seq', 1, false)");
+    await client.query("SELECT setval('values_monthly_id_seq', 1, false)");
+    
+    console.log("Data cleared - will reseed with correct IDs");
+  } catch (error) {
+    console.error("Error during fix migration:", error);
   }
-
-  // Step 2: Move from temporary IDs to correct IDs
-  for (const c of corrections) {
-    const tempId = 1000 + c.correctId;
-    await client.query("UPDATE entities SET id = $1 WHERE id = $2", [c.correctId, tempId]);
-    await client.query("UPDATE values_monthly SET entity_id = $1 WHERE entity_id = $2", [c.correctId, tempId]);
-  }
-
-  // Step 3: Reset sequence
-  await client.query("SELECT setval('entities_id_seq', 15, true)");
-
-  console.log("Entity ID mismatch fixed!");
 }
 
 async function seedDataIfEmpty(client: PoolClient) {
