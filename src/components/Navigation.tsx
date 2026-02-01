@@ -18,7 +18,7 @@ export function Navigation({ isAdmin = false }: NavigationProps) {
   };
 
   const linkClass = (path: string) =>
-    `rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 ${
+    `rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 touch-manipulation ${
       isActive(path)
         ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
         : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white"
@@ -72,25 +72,28 @@ export function Navigation({ isAdmin = false }: NavigationProps) {
 
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
-        <div className="absolute top-full left-0 right-0 sm:hidden bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shadow-lg z-50">
-          <nav className="flex flex-col p-4 gap-2">
-            {navLinks.map((link) => (
-              <Link
-                key={link.path}
-                className={`${linkClass(link.path)} block w-full`}
-                href={link.path}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <span className="flex items-center gap-2">
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={link.icon} />
-                  </svg>
-                  {link.label}
-                </span>
-              </Link>
-            ))}
-          </nav>
-        </div>
+        <>
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 sm:hidden" onClick={() => setMobileMenuOpen(false)} />
+          <div className="fixed top-16 left-0 right-0 sm:hidden bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shadow-xl z-50 max-h-[80vh] overflow-y-auto">
+            <nav className="flex flex-col p-4 gap-1">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.path}
+                  className={`${linkClass(link.path)} block w-full py-3`}
+                  href={link.path}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <span className="flex items-center gap-3">
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={link.icon} />
+                    </svg>
+                    {link.label}
+                  </span>
+                </Link>
+              ))}
+            </nav>
+          </div>
+        </>
       )}
     </>
   );

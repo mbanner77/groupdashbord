@@ -175,12 +175,69 @@
     display: block;
     overflow-x: auto;
     white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Smaller text in tables */
   table th,
   table td {
     font-size: 0.75rem;
+    padding: 0.5rem;
+  }
+
+  /* Mobile cards - single column */
+  .grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Reduce padding on mobile */
+  main {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  /* Sticky mobile actions */
+  .mobile-sticky-bottom {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    padding: 1rem;
+    border-top: 1px solid #e2e8f0;
+    z-index: 40;
+  }
+
+  .dark .mobile-sticky-bottom {
+    background: #1e293b;
+    border-color: #334155;
+  }
+
+  /* Charts height on mobile */
+  .recharts-responsive-container {
+    min-height: 200px !important;
+  }
+
+  /* Modal fullscreen on mobile */
+  .modal-content {
+    max-width: 100% !important;
+    max-height: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  /* Hide long text, show icons */
+  .mobile-icon-only span:not(.sr-only) {
+    display: none;
+  }
+
+  /* Swipe hint for tables */
+  .table-container::after {
+    content: "← Wischen →";
+    display: block;
+    text-align: center;
+    font-size: 0.75rem;
+    color: #94a3b8;
     padding: 0.5rem;
   }
 }

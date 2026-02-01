@@ -418,8 +418,8 @@ export default function PepPage() {
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="mt-5 flex gap-2 rounded-xl bg-slate-100 dark:bg-slate-700/50 p-1">
+        {/* Tabs - responsive */}
+        <div className="mt-5 flex gap-1 sm:gap-2 rounded-xl bg-slate-100 dark:bg-slate-700/50 p-1 overflow-x-auto">
           {[
             { id: "overview", label: "Übersicht", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" },
             { id: "employees", label: "Mitarbeiter", icon: "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m0 0V6" },
@@ -428,16 +428,16 @@ export default function PepPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as typeof activeTab)}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition ${
+              className={`flex items-center gap-1.5 sm:gap-2 rounded-lg px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium transition whitespace-nowrap touch-manipulation ${
                 activeTab === tab.id
                   ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
                   : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={tab.icon} />
               </svg>
-              {tab.label}
+              <span className="hidden xs:inline sm:inline">{tab.label}</span>
             </button>
           ))}
         </div>
@@ -450,52 +450,52 @@ export default function PepPage() {
       ) : summaryData && activeTab === "overview" ? (
         <>
           {/* KPI Cards - Clickable for Drill-Down */}
-          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <section className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-2 lg:grid-cols-5">
             <div 
               onClick={() => setShowDrillDown({ type: "employees", data: summaryData.employees })}
-              className="rounded-2xl bg-white dark:bg-slate-800 p-5 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700 cursor-pointer hover:ring-violet-300 dark:hover:ring-violet-600 transition"
+              className="rounded-xl sm:rounded-2xl bg-white dark:bg-slate-800 p-3 sm:p-5 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700 cursor-pointer hover:ring-violet-300 dark:hover:ring-violet-600 transition touch-manipulation"
             >
-              <div className="text-sm font-medium text-slate-500 dark:text-slate-400">Mitarbeiter</div>
-              <div className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">{summaryData.totals.employeeCount}</div>
-              <div className="mt-1 text-xs text-slate-400">Klicken für Details</div>
+              <div className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400">Mitarbeiter</div>
+              <div className="mt-1 sm:mt-2 text-xl sm:text-3xl font-bold text-slate-900 dark:text-white">{summaryData.totals.employeeCount}</div>
+              <div className="mt-1 text-[10px] sm:text-xs text-slate-400 hidden sm:block">Klicken für Details</div>
             </div>
             <div 
               onClick={() => setShowDrillDown({ type: "target", data: [...summaryData.employees].sort((a,b) => b.totals.targetRevenue - a.totals.targetRevenue) })}
-              className="rounded-2xl bg-white dark:bg-slate-800 p-5 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700 cursor-pointer hover:ring-violet-300 dark:hover:ring-violet-600 transition"
+              className="rounded-xl sm:rounded-2xl bg-white dark:bg-slate-800 p-3 sm:p-5 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700 cursor-pointer hover:ring-violet-300 dark:hover:ring-violet-600 transition touch-manipulation"
             >
-              <div className="text-sm font-medium text-slate-500 dark:text-slate-400">Zielumsatz (100%)</div>
-              <div className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">{formatCurrency(summaryData.totals.targetRevenue)}</div>
-              <div className="mt-1 text-xs text-slate-400">Klicken für Details</div>
+              <div className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400">Zielumsatz</div>
+              <div className="mt-1 sm:mt-2 text-lg sm:text-3xl font-bold text-slate-900 dark:text-white">{formatCurrency(summaryData.totals.targetRevenue)}</div>
+              <div className="mt-1 text-[10px] sm:text-xs text-slate-400 hidden sm:block">Klicken für Details</div>
             </div>
             <div 
               onClick={() => setShowDrillDown({ type: "forecast", data: [...summaryData.employees].sort((a,b) => b.totals.forecastRevenue - a.totals.forecastRevenue) })}
-              className="rounded-2xl bg-white dark:bg-slate-800 p-5 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700 cursor-pointer hover:ring-violet-300 dark:hover:ring-violet-600 transition"
+              className="rounded-xl sm:rounded-2xl bg-white dark:bg-slate-800 p-3 sm:p-5 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700 cursor-pointer hover:ring-violet-300 dark:hover:ring-violet-600 transition touch-manipulation"
             >
-              <div className="text-sm font-medium text-slate-500 dark:text-slate-400">Prognose-Umsatz</div>
-              <div className="mt-2 text-3xl font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(summaryData.totals.forecastRevenue)}</div>
-              <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              <div className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400">Prognose</div>
+              <div className="mt-1 sm:mt-2 text-lg sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(summaryData.totals.forecastRevenue)}</div>
+              <div className="mt-1 text-[10px] sm:text-sm text-slate-500 dark:text-slate-400 hidden sm:block">
                 {formatPercent((summaryData.totals.forecastRevenue / summaryData.totals.targetRevenue) * 100 || 0)} vom Ziel
               </div>
             </div>
             <div 
               onClick={() => setShowDrillDown({ type: "actual", data: [...summaryData.employees].sort((a,b) => b.totals.actualRevenue - a.totals.actualRevenue) })}
-              className="rounded-2xl bg-white dark:bg-slate-800 p-5 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700 cursor-pointer hover:ring-violet-300 dark:hover:ring-violet-600 transition"
+              className="rounded-xl sm:rounded-2xl bg-white dark:bg-slate-800 p-3 sm:p-5 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700 cursor-pointer hover:ring-violet-300 dark:hover:ring-violet-600 transition touch-manipulation"
             >
-              <div className="text-sm font-medium text-slate-500 dark:text-slate-400">IST-Umsatz</div>
-              <div className="mt-2 text-3xl font-bold text-sky-600 dark:text-sky-400">{formatCurrency(summaryData.totals.actualRevenue)}</div>
-              <div className={`mt-1 text-sm ${summaryData.totals.actualRevenue >= summaryData.totals.targetRevenue ? "text-emerald-600" : "text-rose-600"}`}>
+              <div className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400">IST-Umsatz</div>
+              <div className="mt-1 sm:mt-2 text-lg sm:text-3xl font-bold text-sky-600 dark:text-sky-400">{formatCurrency(summaryData.totals.actualRevenue)}</div>
+              <div className={`mt-1 text-[10px] sm:text-sm hidden sm:block ${summaryData.totals.actualRevenue >= summaryData.totals.targetRevenue ? "text-emerald-600" : "text-rose-600"}`}>
                 {summaryData.totals.actualRevenue >= summaryData.totals.targetRevenue ? "+" : ""}{formatCurrency(summaryData.totals.actualRevenue - summaryData.totals.targetRevenue)} vs. Ziel
               </div>
             </div>
             <div 
               onClick={() => setShowDrillDown({ type: "utilization", data: [...summaryData.employees].sort((a,b) => b.totals.utilizationPercent - a.totals.utilizationPercent) })}
-              className="rounded-2xl bg-white dark:bg-slate-800 p-5 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700 cursor-pointer hover:ring-violet-300 dark:hover:ring-violet-600 transition"
+              className="rounded-xl sm:rounded-2xl bg-white dark:bg-slate-800 p-3 sm:p-5 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700 cursor-pointer hover:ring-violet-300 dark:hover:ring-violet-600 transition touch-manipulation col-span-2 sm:col-span-1"
             >
-              <div className="text-sm font-medium text-slate-500 dark:text-slate-400">Auslastung</div>
-              <div className={`mt-2 text-3xl font-bold ${utilizationColor(summaryData.totals.utilizationPercent)}`}>
+              <div className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400">Auslastung</div>
+              <div className={`mt-1 sm:mt-2 text-xl sm:text-3xl font-bold ${utilizationColor(summaryData.totals.utilizationPercent)}`}>
                 {formatPercent(summaryData.totals.utilizationPercent)}
               </div>
-              <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              <div className="mt-1 text-[10px] sm:text-sm text-slate-500 dark:text-slate-400">
                 {formatNumber(summaryData.totals.billableHours)} / {formatNumber(summaryData.totals.availableHours)} Std.
               </div>
             </div>
@@ -503,8 +503,8 @@ export default function PepPage() {
 
           {/* Drill-Down Modal */}
           {showDrillDown && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowDrillDown(null)}>
-              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50" onClick={() => setShowDrillDown(null)}>
+              <div className="bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-2xl w-full sm:mx-4 max-h-[85vh] sm:max-h-[80vh] overflow-hidden" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
                   <h3 className="font-bold text-lg text-slate-900 dark:text-white">
                     {showDrillDown.type === "employees" && "Alle Mitarbeiter"}
