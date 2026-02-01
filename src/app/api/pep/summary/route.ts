@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "../../../../lib/db";
+import { allAsync, getAsync } from "../../../../lib/db";
 import { cookies } from "next/headers";
 
 async function getUser() {
@@ -7,14 +7,13 @@ async function getUser() {
   const token = cookieStore.get("session")?.value;
   if (!token) return null;
   
-  const db = await getDb();
-  const session = db.get<{ user_id: number; expires_at: string }>(
+  const session = await getAsync<{ user_id: number; expires_at: string }>(
     "SELECT user_id, expires_at FROM sessions WHERE token = $1",
     [token]
   );
   if (!session || new Date(session.expires_at) < new Date()) return null;
   
-  const user = db.get<{ id: number; username: string; role: string }>(
+  const user = await getAsync<{ id: number; username: string; role: string }>(
     "SELECT id, username, role FROM users WHERE id = $1",
     [session.user_id]
   );
@@ -35,90 +34,89 @@ export async function GET(req: NextRequest) {
   const entityId = searchParams.get("entityId");
   const portfolioId = searchParams.get("portfolioId");
 
-  const db = await getDb();
+  try {
+    // Get all employees with their planning data
+    let employeeQuery = `
+      SELECT 
+        e.id as employee_id,
+        e.first_name,
+        e.last_name,
+        e.entity_id,
+        e.weekly_hours,
+        e.hourly_rate,
+        en.code as entity_code,
+        en.display_name as entity_name
+      FROM employees e
+      JOIN entities en ON en.id = e.entity_id
+      WHERE e.is_active = 1
+    `;
+    const employeeParams: (string | number)[] = [];
 
-  // Get all employees with their planning data
-  let employeeQuery = `
-    SELECT 
-      e.id as employee_id,
-      e.first_name,
-      e.last_name,
-      e.entity_id,
-      e.weekly_hours,
-      e.hourly_rate,
-      en.code as entity_code,
-      en.display_name as entity_name
-    FROM employees e
-    JOIN entities en ON en.id = e.entity_id
-    WHERE e.is_active = 1
-  `;
-  const employeeParams: (string | number)[] = [];
+    if (entityId) {
+      employeeQuery += " AND e.entity_id = $1";
+      employeeParams.push(Number(entityId));
+    }
 
-  if (entityId) {
-    employeeQuery += " AND e.entity_id = $1";
-    employeeParams.push(Number(entityId));
-  }
+    if (portfolioId) {
+      employeeQuery += ` AND EXISTS (SELECT 1 FROM employee_portfolios ep WHERE ep.employee_id = e.id AND ep.portfolio_id = $${employeeParams.length + 1})`;
+      employeeParams.push(Number(portfolioId));
+    }
 
-  if (portfolioId) {
-    employeeQuery += ` AND EXISTS (SELECT 1 FROM employee_portfolios ep WHERE ep.employee_id = e.id AND ep.portfolio_id = $${employeeParams.length + 1})`;
-    employeeParams.push(Number(portfolioId));
-  }
+    const employees = await allAsync<{
+      employee_id: number;
+      first_name: string;
+      last_name: string;
+      entity_id: number;
+      weekly_hours: number;
+      hourly_rate: number | null;
+      entity_code: string;
+      entity_name: string;
+    }>(employeeQuery, employeeParams);
 
-  const employees = db.all<{
-    employee_id: number;
-    first_name: string;
-    last_name: string;
-    entity_id: number;
-    weekly_hours: number;
-    hourly_rate: number | null;
-    entity_code: string;
-    entity_name: string;
-  }>(employeeQuery, employeeParams);
+    // Get planning data for all employees
+    const planningQuery = `
+      SELECT 
+        pp.employee_id,
+        pp.month,
+        pp.target_revenue,
+        pp.forecast_percent,
+        pp.vacation_days,
+        pp.internal_days,
+        pp.sick_days,
+        pp.training_days,
+        COALESCE(pa.actual_revenue, 0) as actual_revenue,
+        COALESCE(pa.billable_hours, 0) as billable_hours
+      FROM pep_planning pp
+      LEFT JOIN pep_actuals pa ON pa.employee_id = pp.employee_id AND pa.year = pp.year AND pa.month = pp.month
+      WHERE pp.year = $1
+    `;
+    const planningData = await allAsync<{
+      employee_id: number;
+      month: number;
+      target_revenue: number;
+      forecast_percent: number;
+      vacation_days: number;
+      internal_days: number;
+      sick_days: number;
+      training_days: number;
+      actual_revenue: number;
+      billable_hours: number;
+    }>(planningQuery, [year]);
 
-  // Get planning data for all employees
-  const planningQuery = `
-    SELECT 
-      pp.employee_id,
-      pp.month,
-      pp.target_revenue,
-      pp.forecast_percent,
-      pp.vacation_days,
-      pp.internal_days,
-      pp.sick_days,
-      pp.training_days,
-      COALESCE(pa.actual_revenue, 0) as actual_revenue,
-      COALESCE(pa.billable_hours, 0) as billable_hours
-    FROM pep_planning pp
-    LEFT JOIN pep_actuals pa ON pa.employee_id = pp.employee_id AND pa.year = pp.year AND pa.month = pp.month
-    WHERE pp.year = $1
-  `;
-  const planningData = db.all<{
-    employee_id: number;
-    month: number;
-    target_revenue: number;
-    forecast_percent: number;
-    vacation_days: number;
-    internal_days: number;
-    sick_days: number;
-    training_days: number;
-    actual_revenue: number;
-    billable_hours: number;
-  }>(planningQuery, [year]);
-
-  // Get portfolio assignments
-  const portfolioAssignments = db.all<{
-    employee_id: number;
-    portfolio_id: number;
-    portfolio_code: string;
-    portfolio_name: string;
-    portfolio_color: string;
-    allocation_percent: number;
-  }>(`
-    SELECT ep.employee_id, ep.portfolio_id, p.code as portfolio_code, p.display_name as portfolio_name, p.color as portfolio_color, ep.allocation_percent
-    FROM employee_portfolios ep
-    JOIN portfolios p ON p.id = ep.portfolio_id
-    WHERE p.is_active = 1
-  `);
+    // Get portfolio assignments
+    const portfolioAssignments = await allAsync<{
+      employee_id: number;
+      portfolio_id: number;
+      portfolio_code: string;
+      portfolio_name: string;
+      portfolio_color: string;
+      allocation_percent: number;
+    }>(`
+      SELECT ep.employee_id, ep.portfolio_id, p.code as portfolio_code, p.display_name as portfolio_name, p.color as portfolio_color, ep.allocation_percent
+      FROM employee_portfolios ep
+      JOIN portfolios p ON p.id = ep.portfolio_id
+      WHERE p.is_active = 1
+    `);
 
   // Calculate summary per employee
   const employeeSummary = employees.map(emp => {
@@ -197,11 +195,11 @@ export async function GET(req: NextRequest) {
   });
 
   // Calculate portfolio summary
-  const portfolios = db.all<{ id: number; code: string; display_name: string; color: string }>(
+  const portfolios = await allAsync<{ id: number; code: string; display_name: string; color: string }>(
     "SELECT id, code, display_name, color FROM portfolios WHERE is_active = 1"
   );
 
-  const portfolioSummary = portfolios.map(portfolio => {
+  const portfolioSummary = portfolios.map((portfolio: { id: number; code: string; display_name: string; color: string }) => {
     const portfolioEmployees = employeeSummary.filter(e => 
       e.portfolios.some(p => p.portfolio_id === portfolio.id)
     );
@@ -311,4 +309,14 @@ export async function GET(req: NextRequest) {
     entities: Object.values(entitySummary),
     totals: overallTotals
   });
+  } catch (e: unknown) {
+    console.error("Summary GET error:", e);
+    return NextResponse.json({
+      year,
+      employees: [],
+      portfolios: [],
+      entities: [],
+      totals: { employeeCount: 0, targetRevenue: 0, forecastRevenue: 0, actualRevenue: 0, availableHours: 0, billableHours: 0, utilizationPercent: 0 }
+    });
+  }
 }

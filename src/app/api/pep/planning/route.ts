@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "../../../../lib/db";
+import { allAsync, getAsync, execAsync } from "../../../../lib/db";
 import { cookies } from "next/headers";
 
 async function getUser() {
@@ -7,14 +7,13 @@ async function getUser() {
   const token = cookieStore.get("session")?.value;
   if (!token) return null;
   
-  const db = await getDb();
-  const session = db.get<{ user_id: number; expires_at: string }>(
+  const session = await getAsync<{ user_id: number; expires_at: string }>(
     "SELECT user_id, expires_at FROM sessions WHERE token = $1",
     [token]
   );
   if (!session || new Date(session.expires_at) < new Date()) return null;
   
-  const user = db.get<{ id: number; username: string; role: string }>(
+  const user = await getAsync<{ id: number; username: string; role: string }>(
     "SELECT id, username, role FROM users WHERE id = $1",
     [session.user_id]
   );
@@ -22,8 +21,7 @@ async function getUser() {
 }
 
 async function getUserEntityPermissions(userId: number) {
-  const db = await getDb();
-  const permissions = db.all<{ entity_id: number; can_edit: number }>(
+  const permissions = await allAsync<{ entity_id: number; can_edit: number }>(
     "SELECT entity_id, can_edit FROM user_entity_permissions WHERE user_id = $1",
     [userId]
   );
@@ -41,53 +39,56 @@ export async function GET(req: NextRequest) {
   const entityId = searchParams.get("entityId");
   const employeeId = searchParams.get("employeeId");
 
-  const db = await getDb();
-  
-  let query = `
-    SELECT 
-      pp.*,
-      e.first_name,
-      e.last_name,
-      e.entity_id,
-      e.weekly_hours,
-      e.hourly_rate,
-      en.code as entity_code,
-      en.display_name as entity_name,
-      COALESCE(pa.actual_revenue, 0) as actual_revenue,
-      COALESCE(pa.billable_hours, 0) as billable_hours,
-      COALESCE(pa.total_hours, 0) as total_hours
-    FROM pep_planning pp
-    JOIN employees e ON e.id = pp.employee_id
-    JOIN entities en ON en.id = e.entity_id
-    LEFT JOIN pep_actuals pa ON pa.employee_id = pp.employee_id AND pa.year = pp.year AND pa.month = pp.month
-    WHERE pp.year = $1
-  `;
-  const params: (string | number)[] = [Number(year)];
-  let paramIndex = 2;
+  try {
+    let query = `
+      SELECT 
+        pp.*,
+        e.first_name,
+        e.last_name,
+        e.entity_id,
+        e.weekly_hours,
+        e.hourly_rate,
+        en.code as entity_code,
+        en.display_name as entity_name,
+        COALESCE(pa.actual_revenue, 0) as actual_revenue,
+        COALESCE(pa.billable_hours, 0) as billable_hours,
+        COALESCE(pa.total_hours, 0) as total_hours
+      FROM pep_planning pp
+      JOIN employees e ON e.id = pp.employee_id
+      JOIN entities en ON en.id = e.entity_id
+      LEFT JOIN pep_actuals pa ON pa.employee_id = pp.employee_id AND pa.year = pp.year AND pa.month = pp.month
+      WHERE pp.year = $1
+    `;
+    const params: (string | number)[] = [Number(year)];
+    let paramIndex = 2;
 
-  if (employeeId) {
-    query += ` AND pp.employee_id = $${paramIndex}`;
-    params.push(Number(employeeId));
-    paramIndex++;
-  } else if (entityId) {
-    query += ` AND e.entity_id = $${paramIndex}`;
-    params.push(Number(entityId));
-    paramIndex++;
-  } else if (user.role !== "admin") {
-    const permissions = await getUserEntityPermissions(user.id);
-    const entityIds = permissions.map(p => p.entity_id);
-    if (entityIds.length === 0) {
-      return NextResponse.json([]);
+    if (employeeId) {
+      query += ` AND pp.employee_id = $${paramIndex}`;
+      params.push(Number(employeeId));
+      paramIndex++;
+    } else if (entityId) {
+      query += ` AND e.entity_id = $${paramIndex}`;
+      params.push(Number(entityId));
+      paramIndex++;
+    } else if (user.role !== "admin") {
+      const permissions = await getUserEntityPermissions(user.id);
+      const entityIds = permissions.map(p => p.entity_id);
+      if (entityIds.length === 0) {
+        return NextResponse.json([]);
+      }
+      query += ` AND e.entity_id IN (${entityIds.map((_, i) => `$${paramIndex + i}`).join(", ")})`;
+      params.push(...entityIds);
     }
-    query += ` AND e.entity_id IN (${entityIds.map((_, i) => `$${paramIndex + i}`).join(", ")})`;
-    params.push(...entityIds);
+
+    query += " ORDER BY e.last_name, e.first_name, pp.month";
+
+    const planning = await allAsync(query, params);
+
+    return NextResponse.json(planning);
+  } catch (e: unknown) {
+    console.error("Planning GET error:", e);
+    return NextResponse.json([]);
   }
-
-  query += " ORDER BY e.last_name, e.first_name, pp.month";
-
-  const planning = db.all(query, params);
-
-  return NextResponse.json(planning);
 }
 
 export async function PUT(req: NextRequest) {
@@ -103,10 +104,8 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "employee_id, year and month are required" }, { status: 400 });
   }
 
-  const db = await getDb();
-
   // Get employee to check entity
-  const employee = db.get<{ entity_id: number }>("SELECT entity_id FROM employees WHERE id = $1", [employee_id]);
+  const employee = await getAsync<{ entity_id: number }>("SELECT entity_id FROM employees WHERE id = $1", [employee_id]);
   if (!employee) {
     return NextResponse.json({ error: "Employee not found" }, { status: 404 });
   }
@@ -124,7 +123,7 @@ export async function PUT(req: NextRequest) {
 
   try {
     // Upsert planning data
-    await db.exec(
+    await execAsync(
       `INSERT INTO pep_planning (employee_id, year, month, target_revenue, forecast_percent, vacation_days, internal_days, sick_days, training_days, notes, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        ON CONFLICT (employee_id, year, month) DO UPDATE SET
@@ -138,7 +137,6 @@ export async function PUT(req: NextRequest) {
          updated_at = EXCLUDED.updated_at`,
       [employee_id, year, month, target_revenue || 0, forecast_percent || 80, vacation_days || 0, internal_days || 0, sick_days || 0, training_days || 0, notes || null, now]
     );
-    await db.save();
 
     return NextResponse.json({ success: true });
   } catch (e: unknown) {
@@ -161,10 +159,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "employee_id, year and monthly_data are required" }, { status: 400 });
   }
 
-  const db = await getDb();
-
   // Get employee to check entity
-  const employee = db.get<{ entity_id: number }>("SELECT entity_id FROM employees WHERE id = $1", [employee_id]);
+  const employee = await getAsync<{ entity_id: number }>("SELECT entity_id FROM employees WHERE id = $1", [employee_id]);
   if (!employee) {
     return NextResponse.json({ error: "Employee not found" }, { status: 404 });
   }
@@ -185,7 +181,7 @@ export async function POST(req: NextRequest) {
       const { month, target_revenue, forecast_percent, vacation_days, internal_days, sick_days, training_days, notes } = data;
       if (!month) continue;
 
-      await db.exec(
+      await execAsync(
         `INSERT INTO pep_planning (employee_id, year, month, target_revenue, forecast_percent, vacation_days, internal_days, sick_days, training_days, notes, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
          ON CONFLICT (employee_id, year, month) DO UPDATE SET
@@ -200,7 +196,6 @@ export async function POST(req: NextRequest) {
         [employee_id, year, month, target_revenue || 0, forecast_percent || 80, vacation_days || 0, internal_days || 0, sick_days || 0, training_days || 0, notes || null, now]
       );
     }
-    await db.save();
 
     return NextResponse.json({ success: true });
   } catch (e: unknown) {
