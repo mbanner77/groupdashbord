@@ -194,26 +194,32 @@ export async function GET(req: NextRequest) {
     "SELECT id, code, display_name, color FROM portfolios WHERE is_active = 1"
   );
 
+  // Calculate portfolio summary based on monthly planning assignments
   const portfolioSummary = portfolios.map((portfolio: { id: number; code: string; display_name: string; color: string }) => {
-    const portfolioEmployees = employeeSummary.filter(e => 
-      e.portfolios.some(p => p.portfolio_id === portfolio.id)
-    );
-    
     let totalTargetRevenue = 0;
     let totalForecastRevenue = 0;
     let totalActualRevenue = 0;
     let totalAvailableHours = 0;
     let totalBillableHours = 0;
+    const employeesInPortfolio = new Set<number>();
 
-    portfolioEmployees.forEach(emp => {
-      const allocation = emp.portfolios.find(p => p.portfolio_id === portfolio.id)?.allocation_percent || 100;
-      const factor = allocation / 100;
+    // Sum up all monthly data where portfolio_id matches
+    planningData.filter(p => p.portfolio_id === portfolio.id).forEach(monthData => {
+      employeesInPortfolio.add(monthData.employee_id);
+      totalTargetRevenue += monthData.target_revenue;
+      totalForecastRevenue += monthData.target_revenue * (monthData.forecast_percent / 100);
+      totalActualRevenue += monthData.actual_revenue;
+      totalBillableHours += monthData.billable_hours;
       
-      totalTargetRevenue += emp.totals.targetRevenue * factor;
-      totalForecastRevenue += emp.totals.forecastRevenue * factor;
-      totalActualRevenue += emp.totals.actualRevenue * factor;
-      totalAvailableHours += emp.totals.availableHours * factor;
-      totalBillableHours += emp.totals.billableHours * factor;
+      // Calculate available hours for this month
+      const emp = employees.find(e => e.employee_id === monthData.employee_id);
+      if (emp) {
+        const workingDays = WORKING_DAYS_PER_MONTH[(monthData.month - 1)] || 21;
+        const absenceDays = monthData.vacation_days + monthData.internal_days + monthData.sick_days + monthData.training_days;
+        const netDays = workingDays - absenceDays;
+        const dailyHours = emp.weekly_hours / 5;
+        totalAvailableHours += netDays * dailyHours;
+      }
     });
 
     return {
@@ -221,7 +227,7 @@ export async function GET(req: NextRequest) {
       code: portfolio.code,
       name: portfolio.display_name,
       color: portfolio.color,
-      employeeCount: portfolioEmployees.length,
+      employeeCount: employeesInPortfolio.size,
       totals: {
         targetRevenue: totalTargetRevenue,
         forecastRevenue: totalForecastRevenue,

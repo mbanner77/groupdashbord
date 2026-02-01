@@ -282,7 +282,8 @@ export default function PepPage() {
         vacation_days: data.vacationDays,
         internal_days: data.internalDays,
         sick_days: data.sickDays,
-        training_days: data.trainingDays
+        training_days: data.trainingDays,
+        notes: data.notes
       }));
       
       const res = await fetch("/api/pep/planning", {
