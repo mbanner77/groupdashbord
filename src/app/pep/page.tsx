@@ -125,10 +125,12 @@ export default function PepPage() {
   const [activeTab, setActiveTab] = useState<"overview" | "employees" | "planning">("overview");
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeSummary | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [editingPlanning, setEditingPlanning] = useState<Record<number, { portfolioId: number | null; targetRevenue: number; forecastPercent: number; vacationDays: number; internalDays: number; sickDays: number; trainingDays: number }>>({});
+  const [editingPlanning, setEditingPlanning] = useState<Record<number, { portfolioId: number | null; targetRevenue: number; forecastPercent: number; vacationDays: number; internalDays: number; sickDays: number; trainingDays: number; actualRevenue: number; billableHours: number; notes: string }>>({});
   const [savingPlanning, setSavingPlanning] = useState(false);
   const [allPortfolios, setAllPortfolios] = useState<Array<{ id: number; code: string; display_name: string; color: string }>>([]);
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
+  const [employeeSearch, setEmployeeSearch] = useState("");
+  const [showActuals, setShowActuals] = useState(false);
   const [employeeForm, setEmployeeForm] = useState({
     first_name: "",
     last_name: "",
@@ -197,7 +199,7 @@ export default function PepPage() {
 
   // Initialize editing data when employee is selected
   const initEditingPlanning = (emp: EmployeeSummary) => {
-    const data: Record<number, { portfolioId: number | null; targetRevenue: number; forecastPercent: number; vacationDays: number; internalDays: number; sickDays: number; trainingDays: number }> = {};
+    const data: Record<number, { portfolioId: number | null; targetRevenue: number; forecastPercent: number; vacationDays: number; internalDays: number; sickDays: number; trainingDays: number; actualRevenue: number; billableHours: number; notes: string }> = {};
     for (let m = 1; m <= 12; m++) {
       const monthData = emp.monthly.find(md => md.month === m);
       data[m] = {
@@ -207,10 +209,64 @@ export default function PepPage() {
         vacationDays: monthData?.vacationDays || 0,
         internalDays: monthData?.internalDays || 0,
         sickDays: monthData?.sickDays || 0,
-        trainingDays: monthData?.trainingDays || 0
+        trainingDays: monthData?.trainingDays || 0,
+        actualRevenue: monthData?.actualRevenue || 0,
+        billableHours: monthData?.billableHours || 0,
+        notes: ""
       };
     }
     setEditingPlanning(data);
+  };
+
+  // Filter employees based on search
+  const filteredEmployees = useMemo(() => {
+    if (!summaryData?.employees || !employeeSearch.trim()) return summaryData?.employees || [];
+    const search = employeeSearch.toLowerCase();
+    return summaryData.employees.filter(emp => 
+      emp.first_name.toLowerCase().includes(search) ||
+      emp.last_name.toLowerCase().includes(search) ||
+      emp.entity_name.toLowerCase().includes(search) ||
+      emp.position?.toLowerCase().includes(search)
+    );
+  }, [summaryData?.employees, employeeSearch]);
+
+  // Excel Export function
+  const exportToExcel = () => {
+    if (!summaryData) return;
+    const rows = [
+      ["Name", "Firma", "Position", "Zielumsatz", "Prognose", "IST-Umsatz", "Urlaub", "Kapazität (Std.)", "Auslastung %"].join("\t")
+    ];
+    summaryData.employees.forEach(emp => {
+      rows.push([
+        `${emp.last_name}, ${emp.first_name}`,
+        emp.entity_name,
+        emp.position || "",
+        emp.totals.targetRevenue,
+        emp.totals.forecastRevenue,
+        emp.totals.actualRevenue,
+        emp.totals.plannedAbsence,
+        emp.totals.availableHours,
+        emp.totals.utilizationPercent.toFixed(1)
+      ].join("\t"));
+    });
+    const blob = new Blob([rows.join("\n")], { type: "text/tab-separated-values" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `PEP_${year}_Export.tsv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Utilization badge component
+  const UtilizationBadge = ({ percent }: { percent: number }) => {
+    const bgColor = percent >= 80 ? "bg-emerald-100 dark:bg-emerald-900/30" : percent >= 60 ? "bg-amber-100 dark:bg-amber-900/30" : "bg-rose-100 dark:bg-rose-900/30";
+    const textColor = utilizationColor(percent);
+    return (
+      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${bgColor} ${textColor}`}>
+        {formatPercent(percent)}
+      </span>
+    );
   };
 
   const handleSavePlanning = async () => {
@@ -475,17 +531,40 @@ export default function PepPage() {
         </>
       ) : summaryData && activeTab === "employees" ? (
         <section className="rounded-2xl bg-white dark:bg-slate-800 p-6 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Mitarbeiter ({summaryData.employees.length})</h2>
-            <button
-              onClick={() => setShowEmployeeForm(true)}
-              className="flex items-center gap-2 rounded-lg bg-violet-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-600"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Mitarbeiter hinzufügen
-            </button>
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Mitarbeiter ({filteredEmployees.length})</h2>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Suchen..."
+                  value={employeeSearch}
+                  onChange={(e) => setEmployeeSearch(e.target.value)}
+                  className="w-48 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 pl-9 pr-3 py-2 text-sm dark:text-white"
+                />
+              </div>
+              <button
+                onClick={exportToExcel}
+                className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export
+              </button>
+              <button
+                onClick={() => setShowEmployeeForm(true)}
+                className="flex items-center gap-2 rounded-lg bg-violet-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-600"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Mitarbeiter hinzufügen
+              </button>
+            </div>
           </div>
 
           {showEmployeeForm && (
@@ -636,7 +715,7 @@ export default function PepPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                {summaryData.employees.map((emp) => (
+                {filteredEmployees.map((emp) => (
                   <tr 
                     key={emp.employee_id} 
                     className="hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer"
@@ -644,6 +723,7 @@ export default function PepPage() {
                   >
                     <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">
                       {emp.last_name}, {emp.first_name}
+                      {emp.position && <span className="block text-xs text-slate-500 dark:text-slate-400">{emp.position}</span>}
                     </td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{emp.entity_name}</td>
                     <td className="px-4 py-3">
@@ -663,8 +743,8 @@ export default function PepPage() {
                     <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">{formatCurrency(emp.totals.forecastRevenue)}</td>
                     <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-300">{formatNumber(emp.totals.plannedAbsence)}</td>
                     <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-300">{formatNumber(emp.totals.availableHours)} Std.</td>
-                    <td className={`px-4 py-3 text-right font-semibold ${utilizationColor(emp.totals.utilizationPercent)}`}>
-                      {formatPercent(emp.totals.utilizationPercent)}
+                    <td className="px-4 py-3 text-right">
+                      <UtilizationBadge percent={emp.totals.utilizationPercent} />
                     </td>
                   </tr>
                 ))}
@@ -707,8 +787,19 @@ export default function PepPage() {
               </div>
 
               {/* Monthly Planning Grid - Editable */}
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Jahresplanung {year}</h3>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-4">
+                  <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Jahresplanung {year}</h3>
+                  <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                    <input
+                      type="checkbox"
+                      checked={showActuals}
+                      onChange={(e) => setShowActuals(e.target.checked)}
+                      className="rounded border-slate-300"
+                    />
+                    IST-Werte anzeigen
+                  </label>
+                </div>
                 <button
                   onClick={handleSavePlanning}
                   disabled={savingPlanning}
@@ -729,6 +820,8 @@ export default function PepPage() {
                       <th className="px-2 py-2 text-center font-semibold text-slate-700 dark:text-slate-300">Schulung</th>
                       <th className="px-2 py-2 text-center font-semibold text-slate-700 dark:text-slate-300">Zielumsatz €</th>
                       <th className="px-2 py-2 text-center font-semibold text-slate-700 dark:text-slate-300">Prognose %</th>
+                      {showActuals && <th className="px-2 py-2 text-center font-semibold text-sky-700 dark:text-sky-300">IST €</th>}
+                      {showActuals && <th className="px-2 py-2 text-center font-semibold text-sky-700 dark:text-sky-300">Δ Plan/IST</th>}
                       <th className="px-2 py-2 text-right font-semibold text-slate-700 dark:text-slate-300">Netto-Tage</th>
                       <th className="px-2 py-2 text-right font-semibold text-slate-700 dark:text-slate-300">Prognose €</th>
                     </tr>
@@ -778,6 +871,16 @@ export default function PepPage() {
                             <input type="number" min="0" max="100" value={ed.forecastPercent} onChange={(e) => updatePlanningValue(m.month, "forecastPercent", Number(e.target.value))}
                               className="w-16 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-center text-sm dark:text-white" />
                           </td>
+                          {showActuals && (
+                            <td className="px-2 py-1 text-center text-sky-600 dark:text-sky-400 font-medium">
+                              {formatCurrency(m.actualRevenue)}
+                            </td>
+                          )}
+                          {showActuals && (
+                            <td className={`px-2 py-1 text-center font-medium ${m.actualRevenue - ed.targetRevenue >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                              {m.actualRevenue - ed.targetRevenue >= 0 ? "+" : ""}{formatCurrency(m.actualRevenue - ed.targetRevenue)}
+                            </td>
+                          )}
                           <td className="px-2 py-1 text-right text-slate-900 dark:text-white font-medium">{formatNumber(netDays, 1)}</td>
                           <td className="px-2 py-1 text-right text-emerald-600 dark:text-emerald-400 font-medium">{formatCurrency(forecastRevenue)}</td>
                         </tr>
@@ -797,6 +900,8 @@ export default function PepPage() {
                       const totalWorkingDays = selectedEmployee.monthly.reduce((s, m) => s + m.workingDays, 0);
                       const totalAbsence = totals.vacationDays + totals.internalDays + totals.sickDays + totals.trainingDays;
                       const totalNetDays = totalWorkingDays - totalAbsence;
+                      const totalActualRevenue = selectedEmployee.monthly.reduce((s, m) => s + m.actualRevenue, 0);
+                      const totalDelta = totalActualRevenue - totals.targetRevenue;
                       return (
                         <tr className="border-t-2 border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 font-semibold">
                           <td className="px-2 py-2 text-slate-900 dark:text-white">Gesamt {year}</td>
@@ -807,6 +912,8 @@ export default function PepPage() {
                           <td className="px-2 py-2 text-center text-violet-600 dark:text-violet-400">{totals.trainingDays}</td>
                           <td className="px-2 py-2 text-center text-slate-900 dark:text-white">{formatCurrency(totals.targetRevenue)}</td>
                           <td className="px-2 py-2 text-center text-slate-600 dark:text-slate-300">–</td>
+                          {showActuals && <td className="px-2 py-2 text-center text-sky-600 dark:text-sky-400">{formatCurrency(totalActualRevenue)}</td>}
+                          {showActuals && <td className={`px-2 py-2 text-center ${totalDelta >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>{totalDelta >= 0 ? "+" : ""}{formatCurrency(totalDelta)}</td>}
                           <td className="px-2 py-2 text-right text-slate-900 dark:text-white">{formatNumber(totalNetDays)}</td>
                           <td className="px-2 py-2 text-right text-emerald-600 dark:text-emerald-400">{formatCurrency(totals.forecastRevenue)}</td>
                         </tr>
