@@ -312,12 +312,36 @@ export async function GET(req: NextRequest) {
     ? (overallTotals.billableHours / overallTotals.availableHours) * 100 
     : 0;
 
+  // Monthly aggregates for charts
+  const monthlyData = Array.from({ length: 12 }, (_, i) => {
+    const month = i + 1;
+    let target = 0, forecast = 0, actual = 0, availableHours = 0, billableHours = 0;
+    employeeSummary.forEach(emp => {
+      const m = emp.monthly[i];
+      target += m.targetRevenue;
+      forecast += m.forecastRevenue;
+      actual += m.actualRevenue;
+      availableHours += m.availableHours;
+      billableHours += m.billableHours;
+    });
+    return {
+      month,
+      targetRevenue: target,
+      forecastRevenue: forecast,
+      actualRevenue: actual,
+      availableHours,
+      billableHours,
+      utilizationPercent: availableHours > 0 ? (billableHours / availableHours) * 100 : 0
+    };
+  });
+
   return NextResponse.json({
     year,
     employees: employeeSummary,
     portfolios: portfolioSummary,
     entities: Object.values(entitySummary),
-    totals: overallTotals
+    totals: overallTotals,
+    monthly: monthlyData
   });
   } catch (e: unknown) {
     console.error("Summary GET error:", e);
@@ -326,7 +350,8 @@ export async function GET(req: NextRequest) {
       employees: [],
       portfolios: [],
       entities: [],
-      totals: { employeeCount: 0, targetRevenue: 0, forecastRevenue: 0, actualRevenue: 0, availableHours: 0, billableHours: 0, utilizationPercent: 0 }
+      totals: { employeeCount: 0, targetRevenue: 0, forecastRevenue: 0, actualRevenue: 0, availableHours: 0, billableHours: 0, utilizationPercent: 0 },
+      monthly: []
     });
   }
 }

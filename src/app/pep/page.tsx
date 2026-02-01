@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Legend } from "recharts";
 
 interface Portfolio {
   id: number;
@@ -111,6 +111,15 @@ interface SummaryData {
     billableHours: number;
     utilizationPercent: number;
   };
+  monthly: Array<{
+    month: number;
+    targetRevenue: number;
+    forecastRevenue: number;
+    actualRevenue: number;
+    availableHours: number;
+    billableHours: number;
+    utilizationPercent: number;
+  }>;
 }
 
 const MONTHS = ["Jan", "Feb", "Mrz", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
@@ -144,6 +153,8 @@ export default function PepPage() {
   });
   const [savingEmployee, setSavingEmployee] = useState(false);
   const [allEntities, setAllEntities] = useState<Array<{ id: number; code: string; display_name: string }>>([]);
+  const [yearlyComment, setYearlyComment] = useState("");
+  const [showDrillDown, setShowDrillDown] = useState<{ type: string; data: EmployeeSummary[] } | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -430,31 +441,48 @@ export default function PepPage() {
         </div>
       ) : summaryData && activeTab === "overview" ? (
         <>
-          {/* KPI Cards */}
+          {/* KPI Cards - Clickable for Drill-Down */}
           <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <div className="rounded-2xl bg-white dark:bg-slate-800 p-5 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700">
+            <div 
+              onClick={() => setShowDrillDown({ type: "employees", data: summaryData.employees })}
+              className="rounded-2xl bg-white dark:bg-slate-800 p-5 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700 cursor-pointer hover:ring-violet-300 dark:hover:ring-violet-600 transition"
+            >
               <div className="text-sm font-medium text-slate-500 dark:text-slate-400">Mitarbeiter</div>
               <div className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">{summaryData.totals.employeeCount}</div>
+              <div className="mt-1 text-xs text-slate-400">Klicken für Details</div>
             </div>
-            <div className="rounded-2xl bg-white dark:bg-slate-800 p-5 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700">
+            <div 
+              onClick={() => setShowDrillDown({ type: "target", data: [...summaryData.employees].sort((a,b) => b.totals.targetRevenue - a.totals.targetRevenue) })}
+              className="rounded-2xl bg-white dark:bg-slate-800 p-5 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700 cursor-pointer hover:ring-violet-300 dark:hover:ring-violet-600 transition"
+            >
               <div className="text-sm font-medium text-slate-500 dark:text-slate-400">Zielumsatz (100%)</div>
               <div className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">{formatCurrency(summaryData.totals.targetRevenue)}</div>
+              <div className="mt-1 text-xs text-slate-400">Klicken für Details</div>
             </div>
-            <div className="rounded-2xl bg-white dark:bg-slate-800 p-5 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700">
+            <div 
+              onClick={() => setShowDrillDown({ type: "forecast", data: [...summaryData.employees].sort((a,b) => b.totals.forecastRevenue - a.totals.forecastRevenue) })}
+              className="rounded-2xl bg-white dark:bg-slate-800 p-5 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700 cursor-pointer hover:ring-violet-300 dark:hover:ring-violet-600 transition"
+            >
               <div className="text-sm font-medium text-slate-500 dark:text-slate-400">Prognose-Umsatz</div>
               <div className="mt-2 text-3xl font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(summaryData.totals.forecastRevenue)}</div>
               <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                 {formatPercent((summaryData.totals.forecastRevenue / summaryData.totals.targetRevenue) * 100 || 0)} vom Ziel
               </div>
             </div>
-            <div className="rounded-2xl bg-white dark:bg-slate-800 p-5 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700">
+            <div 
+              onClick={() => setShowDrillDown({ type: "actual", data: [...summaryData.employees].sort((a,b) => b.totals.actualRevenue - a.totals.actualRevenue) })}
+              className="rounded-2xl bg-white dark:bg-slate-800 p-5 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700 cursor-pointer hover:ring-violet-300 dark:hover:ring-violet-600 transition"
+            >
               <div className="text-sm font-medium text-slate-500 dark:text-slate-400">IST-Umsatz</div>
               <div className="mt-2 text-3xl font-bold text-sky-600 dark:text-sky-400">{formatCurrency(summaryData.totals.actualRevenue)}</div>
               <div className={`mt-1 text-sm ${summaryData.totals.actualRevenue >= summaryData.totals.targetRevenue ? "text-emerald-600" : "text-rose-600"}`}>
                 {summaryData.totals.actualRevenue >= summaryData.totals.targetRevenue ? "+" : ""}{formatCurrency(summaryData.totals.actualRevenue - summaryData.totals.targetRevenue)} vs. Ziel
               </div>
             </div>
-            <div className="rounded-2xl bg-white dark:bg-slate-800 p-5 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700">
+            <div 
+              onClick={() => setShowDrillDown({ type: "utilization", data: [...summaryData.employees].sort((a,b) => b.totals.utilizationPercent - a.totals.utilizationPercent) })}
+              className="rounded-2xl bg-white dark:bg-slate-800 p-5 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700 cursor-pointer hover:ring-violet-300 dark:hover:ring-violet-600 transition"
+            >
               <div className="text-sm font-medium text-slate-500 dark:text-slate-400">Auslastung</div>
               <div className={`mt-2 text-3xl font-bold ${utilizationColor(summaryData.totals.utilizationPercent)}`}>
                 {formatPercent(summaryData.totals.utilizationPercent)}
@@ -464,6 +492,151 @@ export default function PepPage() {
               </div>
             </div>
           </section>
+
+          {/* Drill-Down Modal */}
+          {showDrillDown && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowDrillDown(null)}>
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                  <h3 className="font-bold text-lg text-slate-900 dark:text-white">
+                    {showDrillDown.type === "employees" && "Alle Mitarbeiter"}
+                    {showDrillDown.type === "target" && "Zielumsatz nach Mitarbeiter"}
+                    {showDrillDown.type === "forecast" && "Prognose nach Mitarbeiter"}
+                    {showDrillDown.type === "actual" && "IST-Umsatz nach Mitarbeiter"}
+                    {showDrillDown.type === "utilization" && "Auslastung nach Mitarbeiter"}
+                  </h3>
+                  <button onClick={() => setShowDrillDown(null)} className="text-slate-400 hover:text-slate-600">
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="p-4 overflow-y-auto max-h-[60vh]">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 dark:border-slate-700">
+                        <th className="text-left py-2 font-semibold text-slate-700 dark:text-slate-300">Name</th>
+                        <th className="text-right py-2 font-semibold text-slate-700 dark:text-slate-300">Ziel</th>
+                        <th className="text-right py-2 font-semibold text-slate-700 dark:text-slate-300">Prognose</th>
+                        <th className="text-right py-2 font-semibold text-slate-700 dark:text-slate-300">IST</th>
+                        <th className="text-right py-2 font-semibold text-slate-700 dark:text-slate-300">Auslastung</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                      {showDrillDown.data.map(emp => (
+                        <tr key={emp.employee_id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                          <td className="py-2 font-medium text-slate-900 dark:text-white">{emp.last_name}, {emp.first_name}</td>
+                          <td className="py-2 text-right text-slate-600 dark:text-slate-300">{formatCurrency(emp.totals.targetRevenue)}</td>
+                          <td className="py-2 text-right text-emerald-600">{formatCurrency(emp.totals.forecastRevenue)}</td>
+                          <td className="py-2 text-right text-sky-600">{formatCurrency(emp.totals.actualRevenue)}</td>
+                          <td className={`py-2 text-right font-semibold ${utilizationColor(emp.totals.utilizationPercent)}`}>{formatPercent(emp.totals.utilizationPercent)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Deviation Warnings */}
+          {(() => {
+            const deviations = summaryData.employees.filter(emp => {
+              if (emp.totals.targetRevenue === 0) return false;
+              const deviation = Math.abs((emp.totals.forecastRevenue - emp.totals.targetRevenue) / emp.totals.targetRevenue * 100);
+              return deviation > 20;
+            });
+            return deviations.length > 0 ? (
+              <section className="rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <svg className="h-5 w-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <h3 className="font-semibold text-amber-800 dark:text-amber-200">Abweichungswarnung ({deviations.length})</h3>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {deviations.slice(0, 6).map(emp => {
+                    const deviation = ((emp.totals.forecastRevenue - emp.totals.targetRevenue) / emp.totals.targetRevenue * 100);
+                    return (
+                      <div key={emp.employee_id} className="flex items-center justify-between bg-white dark:bg-slate-800 rounded-lg px-3 py-2 text-sm">
+                        <span className="font-medium text-slate-900 dark:text-white">{emp.last_name}, {emp.first_name}</span>
+                        <span className={`font-bold ${deviation < 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                          {deviation > 0 ? "+" : ""}{deviation.toFixed(0)}%
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {deviations.length > 6 && (
+                  <div className="mt-2 text-sm text-amber-700 dark:text-amber-300">... und {deviations.length - 6} weitere mit &gt;20% Abweichung</div>
+                )}
+              </section>
+            ) : null;
+          })()}
+
+          {/* Monthly Trend Chart */}
+          {summaryData.monthly && summaryData.monthly.length > 0 && (
+            <section className="rounded-2xl bg-white dark:bg-slate-800 p-6 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700">
+              <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">Monatlicher Umsatzverlauf</h2>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={summaryData.monthly.map((m, i) => ({ name: MONTHS[i], Ziel: m.targetRevenue, Prognose: m.forecastRevenue, IST: m.actualRevenue }))} margin={{ left: 20, right: 20, top: 10, bottom: 10 }}>
+                    <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                    <YAxis tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} tick={{ fontSize: 12 }} />
+                    <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ backgroundColor: "rgba(15,23,42,0.9)", border: "none", borderRadius: 8 }} itemStyle={{ color: "#fff" }} labelStyle={{ color: "#94a3b8" }} />
+                    <Legend />
+                    <Line type="monotone" dataKey="Ziel" stroke="#94a3b8" strokeWidth={2} dot={{ r: 4 }} />
+                    <Line type="monotone" dataKey="Prognose" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} />
+                    <Line type="monotone" dataKey="IST" stroke="#0ea5e9" strokeWidth={2} dot={{ r: 4 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+          )}
+
+          {/* Utilization Heatmap */}
+          {summaryData.employees.length > 0 && (
+            <section className="rounded-2xl bg-white dark:bg-slate-800 p-6 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700">
+              <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">Auslastung Heatmap</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 dark:border-slate-700">
+                      <th className="px-2 py-2 text-left font-semibold text-slate-700 dark:text-slate-300 sticky left-0 bg-white dark:bg-slate-800">Mitarbeiter</th>
+                      {MONTHS.map(m => <th key={m} className="px-2 py-2 text-center font-semibold text-slate-700 dark:text-slate-300 min-w-[50px]">{m}</th>)}
+                      <th className="px-2 py-2 text-center font-semibold text-slate-700 dark:text-slate-300">Ø</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                    {summaryData.employees.slice(0, 20).map(emp => (
+                      <tr key={emp.employee_id}>
+                        <td className="px-2 py-1.5 font-medium text-slate-900 dark:text-white sticky left-0 bg-white dark:bg-slate-800 whitespace-nowrap">
+                          {emp.last_name}, {emp.first_name}
+                        </td>
+                        {emp.monthly.map((m, i) => {
+                          const pct = m.utilizationPercent;
+                          const bg = pct >= 80 ? "bg-emerald-500" : pct >= 60 ? "bg-amber-500" : pct > 0 ? "bg-rose-500" : "bg-slate-200 dark:bg-slate-700";
+                          return (
+                            <td key={i} className="px-1 py-1.5">
+                              <div className={`${bg} rounded text-white text-center py-0.5 text-[10px] font-medium`} title={`${MONTHS[i]}: ${pct.toFixed(0)}%`}>
+                                {pct > 0 ? `${pct.toFixed(0)}` : "-"}
+                              </div>
+                            </td>
+                          );
+                        })}
+                        <td className={`px-2 py-1.5 text-center font-bold ${utilizationColor(emp.totals.utilizationPercent)}`}>
+                          {formatPercent(emp.totals.utilizationPercent)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {summaryData.employees.length > 20 && (
+                  <div className="mt-2 text-center text-sm text-slate-500">... und {summaryData.employees.length - 20} weitere</div>
+                )}
+              </div>
+            </section>
+          )}
 
           {/* Portfolio Overview with Chart */}
           {summaryData.portfolios.length > 0 && (
@@ -582,6 +755,35 @@ export default function PepPage() {
                 </svg>
                 Export
               </button>
+              {isAdmin && (
+                <label className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600 cursor-pointer">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  Import
+                  <input type="file" accept=".csv,.tsv,.txt" className="hidden" onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const text = await file.text();
+                    const lines = text.split("\n").filter(l => l.trim());
+                    const headers = lines[0].split("\t");
+                    const data = lines.slice(1).map(line => {
+                      const vals = line.split("\t");
+                      const obj: Record<string, string | number> = {};
+                      headers.forEach((h, i) => obj[h.trim()] = vals[i]?.trim() || "");
+                      return obj;
+                    });
+                    const res = await fetch("/api/pep/planning/import", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ data, year })
+                    });
+                    if (res.ok) { const r = await res.json(); alert(`${r.imported} Zeilen importiert`); reloadData(); }
+                    else alert("Import fehlgeschlagen");
+                    e.target.value = "";
+                  }} />
+                </label>
+              )}
               <button
                 onClick={() => setShowEmployeeForm(true)}
                 className="flex items-center gap-2 rounded-lg bg-violet-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-600"
@@ -829,13 +1031,25 @@ export default function PepPage() {
                     IST-Werte anzeigen
                   </label>
                 </div>
-                <button
-                  onClick={handleSavePlanning}
-                  disabled={savingPlanning}
-                  className="rounded-lg bg-violet-500 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-600 disabled:opacity-50"
-                >
-                  {savingPlanning ? "Speichern…" : "Planung speichern"}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Planung aus ${year - 1} übernehmen? Vorhandene Daten werden überschrieben.`)) return;
+                      const res = await fetch(`/api/pep/planning/copy?employeeId=${selectedEmployee.employee_id}&fromYear=${year - 1}&toYear=${year}`, { method: "POST" });
+                      if (res.ok) { reloadData(); alert("Vorjahresplanung übernommen!"); }
+                    }}
+                    className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600"
+                  >
+                    📋 Aus {year - 1} kopieren
+                  </button>
+                  <button
+                    onClick={handleSavePlanning}
+                    disabled={savingPlanning}
+                    className="rounded-lg bg-violet-500 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-600 disabled:opacity-50"
+                  >
+                    {savingPlanning ? "Speichern…" : "Planung speichern"}
+                  </button>
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
