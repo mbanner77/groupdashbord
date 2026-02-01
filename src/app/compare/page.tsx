@@ -101,7 +101,8 @@ export default function ComparePage() {
   const formatValue = (v: number, type: string) => {
     if (type === "headcount") return Math.round(v).toLocaleString("de-DE");
     if (type === "margin") return v.toFixed(1) + "%";
-    return (v / 1000).toFixed(0) + " T€";
+    // Values are stored in thousands, display as T€
+    return Math.round(v).toLocaleString("de-DE") + " T€";
   };
 
   const maxValue = useMemo(() => {
