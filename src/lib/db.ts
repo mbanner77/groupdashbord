@@ -76,6 +76,81 @@ function migrateSqlite(db: Database.Database) {
     );
   `);
 
+  // PEP (Personal-Einsatz-Planung) tables for SQLite
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS portfolios (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      code TEXT NOT NULL UNIQUE,
+      display_name TEXT NOT NULL,
+      description TEXT,
+      color TEXT DEFAULT '#0ea5e9',
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS employees (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      entity_id INTEGER NOT NULL,
+      employee_number TEXT,
+      first_name TEXT NOT NULL,
+      last_name TEXT NOT NULL,
+      email TEXT,
+      position TEXT,
+      entry_date TEXT,
+      exit_date TEXT,
+      weekly_hours REAL NOT NULL DEFAULT 40,
+      hourly_rate REAL,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS employee_portfolios (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      employee_id INTEGER NOT NULL,
+      portfolio_id INTEGER NOT NULL,
+      allocation_percent REAL NOT NULL DEFAULT 100,
+      UNIQUE(employee_id, portfolio_id)
+    );
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pep_planning (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      employee_id INTEGER NOT NULL,
+      year INTEGER NOT NULL,
+      month INTEGER NOT NULL,
+      target_revenue REAL NOT NULL DEFAULT 0,
+      forecast_percent REAL NOT NULL DEFAULT 80,
+      vacation_days REAL NOT NULL DEFAULT 0,
+      internal_days REAL NOT NULL DEFAULT 0,
+      sick_days REAL NOT NULL DEFAULT 0,
+      training_days REAL NOT NULL DEFAULT 0,
+      notes TEXT,
+      updated_at TEXT NOT NULL,
+      UNIQUE(employee_id, year, month)
+    );
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pep_actuals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      employee_id INTEGER NOT NULL,
+      year INTEGER NOT NULL,
+      month INTEGER NOT NULL,
+      actual_revenue REAL NOT NULL DEFAULT 0,
+      billable_hours REAL NOT NULL DEFAULT 0,
+      total_hours REAL NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL,
+      UNIQUE(employee_id, year, month)
+    );
+  `);
+
   // Create default admin user if not exists
   const adminExists = db.prepare("SELECT id FROM users WHERE username = 'admin'").get();
   if (!adminExists) {
