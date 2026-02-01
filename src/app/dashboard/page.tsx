@@ -552,14 +552,14 @@ export default function DashboardPage() {
         
         {/* Alerts */}
         {(Math.abs(kpis.umsatz.variancePercent) >= 10 || Math.abs(kpis.ebit.variancePercent) >= 10) && (
-          <div className="mt-4 rounded-xl bg-amber-50 p-4 ring-1 ring-amber-200">
+          <div className="mt-4 rounded-xl bg-amber-50 dark:bg-amber-900/30 p-4 ring-1 ring-amber-200 dark:ring-amber-700/50">
             <div className="flex items-start gap-3">
-              <svg className="h-5 w-5 text-amber-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
               <div>
-                <div className="font-semibold text-amber-800">Abweichungen &gt;10% vom Plan</div>
-                <div className="mt-1 text-sm text-amber-700">
+                <div className="font-semibold text-amber-800 dark:text-amber-300">Abweichungen &gt;10% vom Plan</div>
+                <div className="mt-1 text-sm text-amber-700 dark:text-amber-400">
                   {Math.abs(kpis.umsatz.variancePercent) >= 10 && (
                     <span className="mr-4">Umsatz: {formatPercent(kpis.umsatz.variancePercent)}</span>
                   )}
@@ -680,20 +680,20 @@ export default function DashboardPage() {
 
       {/* Prior Year Comparison */}
       <section className="grid gap-6 sm:grid-cols-2">
-        <div className="rounded-2xl bg-gradient-to-br from-sky-50 to-sky-100 p-6 ring-1 ring-sky-200/60">
-          <div className="text-sm font-medium text-sky-700">Umsatz vs. Vorjahr</div>
-          <div className="mt-2 text-2xl font-bold text-sky-900">
+        <div className="rounded-2xl bg-gradient-to-br from-sky-50 to-sky-100 dark:from-sky-900/30 dark:to-sky-800/30 p-6 ring-1 ring-sky-200/60 dark:ring-sky-700/50">
+          <div className="text-sm font-medium text-sky-700 dark:text-sky-400">Umsatz vs. Vorjahr</div>
+          <div className="mt-2 text-2xl font-bold text-sky-900 dark:text-sky-100">
             {formatCurrency(kpis.priorYearComparison.umsatz.current)}
           </div>
-          <div className="mt-1 text-sm text-sky-600">
+          <div className="mt-1 text-sm text-sky-600 dark:text-sky-400">
             Vorjahr: {formatCurrency(kpis.priorYearComparison.umsatz.priorYear)}
           </div>
           <div className="mt-3">
             <span
               className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
                 kpis.priorYearComparison.umsatz.changePercent >= 0
-                  ? "bg-emerald-100 text-emerald-700"
-                  : "bg-rose-100 text-rose-700"
+                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400"
+                  : "bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-400"
               }`}
             >
               {kpis.priorYearComparison.umsatz.changePercent >= 0 ? "↑" : "↓"}{" "}
@@ -701,20 +701,20 @@ export default function DashboardPage() {
             </span>
           </div>
         </div>
-        <div className="rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-100 p-6 ring-1 ring-emerald-200/60">
-          <div className="text-sm font-medium text-emerald-700">EBIT vs. Vorjahr</div>
-          <div className="mt-2 text-2xl font-bold text-emerald-900">
+        <div className="rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:to-emerald-800/30 p-6 ring-1 ring-emerald-200/60 dark:ring-emerald-700/50">
+          <div className="text-sm font-medium text-emerald-700 dark:text-emerald-400">EBIT vs. Vorjahr</div>
+          <div className="mt-2 text-2xl font-bold text-emerald-900 dark:text-emerald-100">
             {formatCurrency(kpis.priorYearComparison.ebit.current)}
           </div>
-          <div className="mt-1 text-sm text-emerald-600">
+          <div className="mt-1 text-sm text-emerald-600 dark:text-emerald-400">
             Vorjahr: {formatCurrency(kpis.priorYearComparison.ebit.priorYear)}
           </div>
           <div className="mt-3">
             <span
               className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
                 kpis.priorYearComparison.ebit.changePercent >= 0
-                  ? "bg-emerald-100 text-emerald-700"
-                  : "bg-rose-100 text-rose-700"
+                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400"
+                  : "bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-400"
               }`}
             >
               {kpis.priorYearComparison.ebit.changePercent >= 0 ? "↑" : "↓"}{" "}
