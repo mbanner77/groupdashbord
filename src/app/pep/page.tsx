@@ -1080,6 +1080,25 @@ export default function PepPage() {
                   </button>
                   <button
                     onClick={async () => {
+                      const res = await fetch("/api/pep/forecast/auto-adjust", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ employeeId: selectedEmployee.employee_id, year })
+                      });
+                      if (res.ok) {
+                        const data = await res.json();
+                        alert(`Forecast angepasst!\nErreichungsrate: ${data.achievementRate}%\nNeue Prognose: ${data.newForecastPercent}%`);
+                        reloadData();
+                      } else {
+                        alert("Keine IST-Daten für Anpassung verfügbar");
+                      }
+                    }}
+                    className="rounded-lg border border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 px-3 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50"
+                  >
+                    ⚡ Auto-Forecast
+                  </button>
+                  <button
+                    onClick={async () => {
                       await handleSavePlanning();
                       const res = await fetch("/api/pep/approvals", {
                         method: "POST",
