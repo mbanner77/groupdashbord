@@ -167,7 +167,7 @@ function migrateSqlite(db: Database.Database) {
 }
 
 async function migrate(client: PoolClient) {
-  if (migrated) return;
+  // Always run CREATE TABLE IF NOT EXISTS statements (they are idempotent)
   
   await client.query(`
     CREATE TABLE IF NOT EXISTS entities (
@@ -351,25 +351,28 @@ async function migrate(client: PoolClient) {
     );
   `);
 
-  // Create default admin user if not exists
-  const adminExists = await client.query("SELECT id FROM users WHERE username = 'admin'");
-  if (adminExists.rows.length === 0) {
-    const crypto = await import("crypto");
-    const passwordHash = crypto.createHash("sha256").update("RealCore2025!").digest("hex");
-    const now = new Date().toISOString();
-    await client.query(
-      "INSERT INTO users (username, password_hash, display_name, role, is_active, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-      ["admin", passwordHash, "Administrator", "admin", 1, now, now]
-    );
+  // Only run these once per server start
+  if (!migrated) {
+    // Create default admin user if not exists
+    const adminExists = await client.query("SELECT id FROM users WHERE username = 'admin'");
+    if (adminExists.rows.length === 0) {
+      const crypto = await import("crypto");
+      const passwordHash = crypto.createHash("sha256").update("RealCore2025!").digest("hex");
+      const now = new Date().toISOString();
+      await client.query(
+        "INSERT INTO users (username, password_hash, display_name, role, is_active, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        ["admin", passwordHash, "Administrator", "admin", 1, now, now]
+      );
+    }
+
+    // Fix entity ID mismatches (one-time migration)
+    await fixEntityIdMismatch(client);
+
+    // Seed data if tables are empty
+    await seedDataIfEmpty(client);
+    
+    migrated = true;
   }
-
-  // Fix entity ID mismatches (one-time migration)
-  await fixEntityIdMismatch(client);
-
-  // Seed data if tables are empty
-  await seedDataIfEmpty(client);
-  
-  migrated = true;
 }
 
 async function fixEntityIdMismatch(client: PoolClient) {
