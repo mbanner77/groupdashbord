@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { z } from "zod";
-import { getDb } from "../../../../lib/db";
+import { getAsync, allAsync, execAsync } from "../../../../lib/db";
 import { slugify } from "../../../../lib/slug";
+import { getCurrentUser } from "../../../../lib/auth";
 
 export const runtime = "nodejs";
 
@@ -61,29 +62,27 @@ function extractYear(rows: unknown[][]): number {
 }
 
 async function upsertEntity(code: string, displayName: string, isAggregate: boolean) {
-  const db = await getDb();
-  const existing = db.get<{ id: number }>("SELECT id FROM entities WHERE code = ?", [code]);
+  const existing = await getAsync<{ id: number }>("SELECT id FROM entities WHERE code = $1", [code]);
   if (existing) return existing.id;
-  db.exec(
-    "INSERT INTO entities (code, display_name, sort_order, is_aggregate) VALUES (?, ?, ?, ?)",
+  await execAsync(
+    "INSERT INTO entities (code, display_name, sort_order, is_aggregate) VALUES ($1, $2, $3, $4)",
     [code, displayName, 0, isAggregate ? 1 : 0]
   );
-  const inserted = db.get<{ id: number }>("SELECT id FROM entities WHERE code = ?", [code]);
+  const inserted = await getAsync<{ id: number }>("SELECT id FROM entities WHERE code = $1", [code]);
   if (!inserted) throw new Error("failed to insert entity");
   return inserted.id;
 }
 
 async function upsertKpi(area: string, code: string, displayName: string, isDerived: boolean) {
-  const db = await getDb();
-  const existing = db.get<{ id: number }>("SELECT id FROM kpis WHERE area = ? AND code = ?", [area, code]);
+  const existing = await getAsync<{ id: number }>("SELECT id FROM kpis WHERE area = $1 AND code = $2", [area, code]);
   if (existing) return existing.id;
-  db.exec("INSERT INTO kpis (area, code, display_name, is_derived) VALUES (?, ?, ?, ?)", [
+  await execAsync("INSERT INTO kpis (area, code, display_name, is_derived) VALUES ($1, $2, $3, $4)", [
     area,
     code,
     displayName,
     isDerived ? 1 : 0
   ]);
-  const inserted = db.get<{ id: number }>("SELECT id FROM kpis WHERE area = ? AND code = ?", [area, code]);
+  const inserted = await getAsync<{ id: number }>("SELECT id FROM kpis WHERE area = $1 AND code = $2", [area, code]);
   if (!inserted) throw new Error("failed to insert kpi");
   return inserted.id;
 }
@@ -137,7 +136,11 @@ function importMapping(sheetName: string, kpiName: string):
 }
 
 export async function POST(request: Request) {
-  const db = await getDb();
+  // Auth check
+  const user = await getCurrentUser();
+  if (!user || user.role !== "admin") {
+    return NextResponse.json({ error: "Nicht autorisiert" }, { status: 403 });
+  }
 
   const contentType = request.headers.get("content-type") ?? "";
   if (!contentType.toLowerCase().includes("multipart/form-data")) {
@@ -163,8 +166,10 @@ export async function POST(request: Request) {
     sheets: 0
   };
 
-  const existingEntities = new Set(db.all<{ code: string }>("SELECT code FROM entities").map((r) => r.code));
-  const existingKpis = new Set(db.all<{ area: string; code: string }>("SELECT area, code FROM kpis").map((r) => `${r.area}:${r.code}`));
+  const existingEntitiesArr = await allAsync<{ code: string }>("SELECT code FROM entities");
+  const existingEntities = new Set(existingEntitiesArr.map((r) => r.code));
+  const existingKpisArr = await allAsync<{ area: string; code: string }>("SELECT area, code FROM kpis");
+  const existingKpis = new Set(existingKpisArr.map((r) => `${r.area}:${r.code}`));
 
   for (const sheetName of ["Umsatz", "Ertrag", "Headcount"]) {
     const sheet = wb.Sheets[sheetName];
@@ -227,8 +232,11 @@ export async function POST(request: Request) {
         const v = row[mc.col];
         if (typeof v !== "number" || !Number.isFinite(v)) continue;
         for (const scenario of mapping.scenarios) {
-          db.exec(
-            "INSERT INTO values_monthly (year, month, entity_id, kpi_id, scenario, value, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(year, month, entity_id, kpi_id, scenario) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+          await execAsync(
+            `INSERT INTO values_monthly (year, month, entity_id, kpi_id, scenario, value, updated_at) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7) 
+             ON CONFLICT(year, month, entity_id, kpi_id, scenario) 
+             DO UPDATE SET value = $6, updated_at = $7`,
             [year, mc.month, entityId, kpiId, scenario, v, new Date().toISOString()]
           );
           imported.values++;
@@ -236,8 +244,6 @@ export async function POST(request: Request) {
       }
     }
   }
-
-  await db.save();
 
   return NextResponse.json({ ok: true, imported });
 }
