@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "../../../../lib/db";
+import { allAsync, getAsync, execAsync } from "../../../../lib/db";
 import { cookies } from "next/headers";
 
 async function getUser() {
@@ -7,14 +7,13 @@ async function getUser() {
   const token = cookieStore.get("session")?.value;
   if (!token) return null;
   
-  const db = await getDb();
-  const session = db.get<{ user_id: number; expires_at: string }>(
+  const session = await getAsync<{ user_id: number; expires_at: string }>(
     "SELECT user_id, expires_at FROM sessions WHERE token = $1",
     [token]
   );
   if (!session || new Date(session.expires_at) < new Date()) return null;
   
-  const user = db.get<{ id: number; username: string; role: string }>(
+  const user = await getAsync<{ id: number; username: string; role: string }>(
     "SELECT id, username, role FROM users WHERE id = $1",
     [session.user_id]
   );
@@ -27,10 +26,8 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const db = await getDb();
-  
   try {
-    const portfolios = db.all<{
+    const portfolios = await allAsync<{
       id: number;
       code: string;
       display_name: string;
@@ -60,12 +57,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Code and display_name are required" }, { status: 400 });
   }
 
-  const db = await getDb();
   const now = new Date().toISOString();
 
   try {
     // Ensure table exists
-    await db.exec(`
+    await execAsync(`
       CREATE TABLE IF NOT EXISTS portfolios (
         id SERIAL PRIMARY KEY,
         code TEXT NOT NULL UNIQUE,
@@ -78,12 +74,11 @@ export async function POST(req: NextRequest) {
       )
     `);
 
-    await db.exec(
+    await execAsync(
       `INSERT INTO portfolios (code, display_name, description, color, is_active, created_at, updated_at)
        VALUES ($1, $2, $3, $4, 1, $5, $5)`,
       [code, display_name, description || null, color || "#0ea5e9", now]
     );
-    await db.save();
 
     return NextResponse.json({ success: true });
   } catch (e: unknown) {
@@ -110,15 +105,13 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "ID is required" }, { status: 400 });
   }
 
-  const db = await getDb();
   const now = new Date().toISOString();
 
   try {
-    await db.exec(
+    await execAsync(
       `UPDATE portfolios SET code = $1, display_name = $2, description = $3, color = $4, is_active = $5, updated_at = $6 WHERE id = $7`,
       [code, display_name, description || null, color || "#0ea5e9", is_active ? 1 : 0, now, id]
     );
-    await db.save();
 
     return NextResponse.json({ success: true });
   } catch (e: unknown) {
@@ -140,11 +133,8 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "ID is required" }, { status: 400 });
   }
 
-  const db = await getDb();
-
   try {
-    await db.exec("DELETE FROM portfolios WHERE id = $1", [Number(id)]);
-    await db.save();
+    await execAsync("DELETE FROM portfolios WHERE id = $1", [Number(id)]);
 
     return NextResponse.json({ success: true });
   } catch (e: unknown) {
