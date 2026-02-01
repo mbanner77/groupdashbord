@@ -261,15 +261,15 @@ export default function WorkbookClient(props: { sheetParam: string }) {
   return (
     <main className="space-y-6">
       {/* Header Section */}
-      <section className="rounded-2xl bg-white p-6 shadow-lg ring-1 ring-slate-200/60">
+      <section className="rounded-2xl bg-white dark:bg-slate-800 p-6 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-emerald-500 text-xl font-bold text-white shadow-lg shadow-sky-500/25">
               {title.charAt(0)}
             </div>
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400">Workbook</div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Workbook</div>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{title}</h1>
             </div>
           </div>
 
@@ -277,7 +277,7 @@ export default function WorkbookClient(props: { sheetParam: string }) {
             <select
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
-              className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+              className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 dark:text-white px-4 py-2 text-sm font-medium shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
             >
               {availableYears.map((y) => (
                 <option key={y} value={y}>
@@ -285,12 +285,12 @@ export default function WorkbookClient(props: { sheetParam: string }) {
                 </option>
               ))}
             </select>
-            <div className="flex items-center gap-2 rounded-xl bg-slate-100 p-1">
+            <div className="flex items-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-700 p-1">
               <Link
                 className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
                   sheetParam === "umsatz"
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-600 hover:text-slate-900"
+                    ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
+                    : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
                 }`}
                 href="/workbook/umsatz"
               >
@@ -299,8 +299,8 @@ export default function WorkbookClient(props: { sheetParam: string }) {
               <Link
                 className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
                   sheetParam === "ertrag"
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-600 hover:text-slate-900"
+                    ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
+                    : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
                 }`}
                 href="/workbook/ertrag"
               >
@@ -309,8 +309,8 @@ export default function WorkbookClient(props: { sheetParam: string }) {
               <Link
                 className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
                   sheetParam === "headcount"
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-600 hover:text-slate-900"
+                    ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
+                    : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
                 }`}
                 href="/workbook/headcount"
               >
@@ -321,12 +321,12 @@ export default function WorkbookClient(props: { sheetParam: string }) {
         </div>
 
         {/* Controls Bar */}
-        <div className="mt-5 flex flex-wrap items-center gap-4 rounded-xl bg-slate-50 p-4">
+        <div className="mt-5 flex flex-wrap items-center gap-4 rounded-xl bg-slate-50 dark:bg-slate-700/50 p-4">
           <div className="flex items-center gap-6">
             <label className="flex items-center gap-2 text-sm">
-              <span className="font-medium text-slate-700">IST bis</span>
+              <span className="font-medium text-slate-700 dark:text-slate-300">IST bis</span>
               <select
-                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 dark:text-white px-3 py-2 text-sm font-medium shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
                 value={cutoffMonth ?? 12}
                 onChange={(e) => void onSaveCutoff(Number(e.target.value))}
               >
@@ -383,7 +383,7 @@ export default function WorkbookClient(props: { sheetParam: string }) {
               className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold shadow-sm transition ${
                 editMode
                   ? "bg-slate-900 text-white hover:bg-slate-800"
-                  : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+                  : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 ring-1 ring-slate-200 dark:ring-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600"
               }`}
               onClick={() => setEditMode((v) => !v)}
             >

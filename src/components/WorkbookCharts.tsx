@@ -31,10 +31,10 @@ export function WorkbookBarChart(props: {
   actualForecastLabel: string;
 }) {
   return (
-    <section className="rounded-2xl bg-white p-5 shadow-lg ring-1 ring-slate-200/60">
+    <section className="rounded-2xl bg-white dark:bg-slate-800 p-5 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700">
       <div className="mb-4 flex items-center gap-3">
         <div className="h-8 w-1 rounded-full bg-gradient-to-b from-sky-500 to-emerald-500" />
-        <h3 className="text-base font-semibold text-slate-900">{props.title}</h3>
+        <h3 className="text-base font-semibold text-slate-900 dark:text-white">{props.title}</h3>
       </div>
       <div className="h-[300px]">
         <ResponsiveContainer width="100%" height="100%">
@@ -79,10 +79,10 @@ export function WorkbookLineChart(props: {
   lines: Array<{ key: string; name: string; color: string }>;
 }) {
   return (
-    <section className="rounded-2xl bg-white p-5 shadow-lg ring-1 ring-slate-200/60">
+    <section className="rounded-2xl bg-white dark:bg-slate-800 p-5 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700">
       <div className="mb-4 flex items-center gap-3">
         <div className="h-8 w-1 rounded-full bg-gradient-to-b from-sky-500 to-slate-400" />
-        <h3 className="text-base font-semibold text-slate-900">{props.title}</h3>
+        <h3 className="text-base font-semibold text-slate-900 dark:text-white">{props.title}</h3>
       </div>
       <div className="h-[300px]">
         <ResponsiveContainer width="100%" height="100%">
