@@ -11,7 +11,7 @@ interface Portfolio {
 }
 
 interface Employee {
-  id: number;
+  employee_id: number;
   entity_id: number;
   entity_code: string;
   entity_name: string;
@@ -121,6 +121,8 @@ export default function PepPage() {
   const [activeTab, setActiveTab] = useState<"overview" | "employees" | "planning">("overview");
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeSummary | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [editingPlanning, setEditingPlanning] = useState<Record<number, { targetRevenue: number; forecastPercent: number; vacationDays: number; internalDays: number; sickDays: number; trainingDays: number }>>({});
+  const [savingPlanning, setSavingPlanning] = useState(false);
   const [allPortfolios, setAllPortfolios] = useState<Array<{ id: number; code: string; display_name: string; color: string }>>([]);
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
   const [employeeForm, setEmployeeForm] = useState({
@@ -187,6 +189,68 @@ export default function PepPage() {
     if (selectedEntity !== "all") params.set("entityId", selectedEntity);
     if (selectedPortfolio !== "all") params.set("portfolioId", selectedPortfolio);
     fetch(`/api/pep/summary?${params}`).then(r => r.json()).then(setSummaryData).catch(() => {});
+  };
+
+  // Initialize editing data when employee is selected
+  const initEditingPlanning = (emp: EmployeeSummary) => {
+    const data: Record<number, { targetRevenue: number; forecastPercent: number; vacationDays: number; internalDays: number; sickDays: number; trainingDays: number }> = {};
+    for (let m = 1; m <= 12; m++) {
+      const monthData = emp.monthly.find(md => md.month === m);
+      data[m] = {
+        targetRevenue: monthData?.targetRevenue || 0,
+        forecastPercent: monthData?.forecastPercent || 80,
+        vacationDays: monthData?.vacationDays || 0,
+        internalDays: monthData?.internalDays || 0,
+        sickDays: monthData?.sickDays || 0,
+        trainingDays: monthData?.trainingDays || 0
+      };
+    }
+    setEditingPlanning(data);
+  };
+
+  const handleSavePlanning = async () => {
+    if (!selectedEmployee) return;
+    setSavingPlanning(true);
+    try {
+      const monthly_data = Object.entries(editingPlanning).map(([month, data]) => ({
+        month: Number(month),
+        target_revenue: data.targetRevenue,
+        forecast_percent: data.forecastPercent,
+        vacation_days: data.vacationDays,
+        internal_days: data.internalDays,
+        sick_days: data.sickDays,
+        training_days: data.trainingDays
+      }));
+      
+      const res = await fetch("/api/pep/planning", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employee_id: selectedEmployee.employee_id,
+          year,
+          monthly_data
+        })
+      });
+      
+      if (res.ok) {
+        reloadData();
+        alert("Planung gespeichert!");
+      } else {
+        const data = await res.json();
+        alert(data.error || "Fehler beim Speichern");
+      }
+    } catch (e) {
+      alert("Fehler beim Speichern");
+    } finally {
+      setSavingPlanning(false);
+    }
+  };
+
+  const updatePlanningValue = (month: number, field: keyof typeof editingPlanning[number], value: number) => {
+    setEditingPlanning(prev => ({
+      ...prev,
+      [month]: { ...prev[month], [field]: value }
+    }));
   };
 
   const handleSaveEmployee = async () => {
@@ -568,9 +632,9 @@ export default function PepPage() {
               <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                 {summaryData.employees.map((emp) => (
                   <tr 
-                    key={emp.id} 
+                    key={emp.employee_id} 
                     className="hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer"
-                    onClick={() => { setSelectedEmployee(emp); setActiveTab("planning"); }}
+                    onClick={() => { setSelectedEmployee(emp); initEditingPlanning(emp); setActiveTab("planning"); }}
                   >
                     <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">
                       {emp.last_name}, {emp.first_name}
@@ -636,60 +700,98 @@ export default function PepPage() {
                 </div>
               </div>
 
-              {/* Monthly Planning Grid */}
+              {/* Monthly Planning Grid - Editable */}
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Jahresplanung {year}</h3>
+                <button
+                  onClick={handleSavePlanning}
+                  disabled={savingPlanning}
+                  className="rounded-lg bg-violet-500 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-600 disabled:opacity-50"
+                >
+                  {savingPlanning ? "Speichern…" : "Planung speichern"}
+                </button>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 dark:border-slate-700">
-                      <th className="px-3 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">Monat</th>
-                      <th className="px-3 py-2 text-right font-semibold text-slate-700 dark:text-slate-300">Arbeitstage</th>
-                      <th className="px-3 py-2 text-right font-semibold text-slate-700 dark:text-slate-300">Urlaub</th>
-                      <th className="px-3 py-2 text-right font-semibold text-slate-700 dark:text-slate-300">Intern</th>
-                      <th className="px-3 py-2 text-right font-semibold text-slate-700 dark:text-slate-300">Netto-Tage</th>
-                      <th className="px-3 py-2 text-right font-semibold text-slate-700 dark:text-slate-300">Kapazität</th>
-                      <th className="px-3 py-2 text-right font-semibold text-slate-700 dark:text-slate-300">Zielumsatz</th>
-                      <th className="px-3 py-2 text-right font-semibold text-slate-700 dark:text-slate-300">Prognose %</th>
-                      <th className="px-3 py-2 text-right font-semibold text-slate-700 dark:text-slate-300">Prognose €</th>
-                      <th className="px-3 py-2 text-right font-semibold text-slate-700 dark:text-slate-300">Auslastung</th>
+                      <th className="px-2 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">Monat</th>
+                      <th className="px-2 py-2 text-center font-semibold text-slate-700 dark:text-slate-300">Urlaub</th>
+                      <th className="px-2 py-2 text-center font-semibold text-slate-700 dark:text-slate-300">Intern</th>
+                      <th className="px-2 py-2 text-center font-semibold text-slate-700 dark:text-slate-300">Krank</th>
+                      <th className="px-2 py-2 text-center font-semibold text-slate-700 dark:text-slate-300">Schulung</th>
+                      <th className="px-2 py-2 text-center font-semibold text-slate-700 dark:text-slate-300">Zielumsatz €</th>
+                      <th className="px-2 py-2 text-center font-semibold text-slate-700 dark:text-slate-300">Prognose %</th>
+                      <th className="px-2 py-2 text-right font-semibold text-slate-700 dark:text-slate-300">Netto-Tage</th>
+                      <th className="px-2 py-2 text-right font-semibold text-slate-700 dark:text-slate-300">Prognose €</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                    {selectedEmployee.monthly.map((m) => (
-                      <tr key={m.month} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-                        <td className="px-3 py-2 font-medium text-slate-900 dark:text-white">{MONTHS[m.month - 1]}</td>
-                        <td className="px-3 py-2 text-right text-slate-600 dark:text-slate-300">{m.workingDays}</td>
-                        <td className="px-3 py-2 text-right text-amber-600 dark:text-amber-400">{m.vacationDays || "–"}</td>
-                        <td className="px-3 py-2 text-right text-sky-600 dark:text-sky-400">{m.internalDays || "–"}</td>
-                        <td className="px-3 py-2 text-right text-slate-900 dark:text-white font-medium">{formatNumber(m.netAvailableDays, 1)}</td>
-                        <td className="px-3 py-2 text-right text-slate-600 dark:text-slate-300">{formatNumber(m.availableHours)} Std.</td>
-                        <td className="px-3 py-2 text-right text-slate-900 dark:text-white">{formatCurrency(m.targetRevenue)}</td>
-                        <td className="px-3 py-2 text-right text-slate-600 dark:text-slate-300">{m.forecastPercent}%</td>
-                        <td className="px-3 py-2 text-right text-emerald-600 dark:text-emerald-400 font-medium">{formatCurrency(m.forecastRevenue)}</td>
-                        <td className={`px-3 py-2 text-right font-semibold ${utilizationColor(m.utilizationPercent)}`}>
-                          {formatPercent(m.utilizationPercent)}
-                        </td>
-                      </tr>
-                    ))}
+                    {selectedEmployee.monthly.map((m) => {
+                      const ed = editingPlanning[m.month] || { targetRevenue: 0, forecastPercent: 80, vacationDays: 0, internalDays: 0, sickDays: 0, trainingDays: 0 };
+                      const absenceDays = ed.vacationDays + ed.internalDays + ed.sickDays + ed.trainingDays;
+                      const netDays = m.workingDays - absenceDays;
+                      const forecastRevenue = ed.targetRevenue * (ed.forecastPercent / 100);
+                      return (
+                        <tr key={m.month} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                          <td className="px-2 py-1 font-medium text-slate-900 dark:text-white">{MONTHS[m.month - 1]}</td>
+                          <td className="px-1 py-1">
+                            <input type="number" min="0" max="31" value={ed.vacationDays} onChange={(e) => updatePlanningValue(m.month, "vacationDays", Number(e.target.value))}
+                              className="w-14 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-center text-sm dark:text-white" />
+                          </td>
+                          <td className="px-1 py-1">
+                            <input type="number" min="0" max="31" value={ed.internalDays} onChange={(e) => updatePlanningValue(m.month, "internalDays", Number(e.target.value))}
+                              className="w-14 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-center text-sm dark:text-white" />
+                          </td>
+                          <td className="px-1 py-1">
+                            <input type="number" min="0" max="31" value={ed.sickDays} onChange={(e) => updatePlanningValue(m.month, "sickDays", Number(e.target.value))}
+                              className="w-14 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-center text-sm dark:text-white" />
+                          </td>
+                          <td className="px-1 py-1">
+                            <input type="number" min="0" max="31" value={ed.trainingDays} onChange={(e) => updatePlanningValue(m.month, "trainingDays", Number(e.target.value))}
+                              className="w-14 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-center text-sm dark:text-white" />
+                          </td>
+                          <td className="px-1 py-1">
+                            <input type="number" min="0" step="1000" value={ed.targetRevenue} onChange={(e) => updatePlanningValue(m.month, "targetRevenue", Number(e.target.value))}
+                              className="w-24 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-center text-sm dark:text-white" />
+                          </td>
+                          <td className="px-1 py-1">
+                            <input type="number" min="0" max="100" value={ed.forecastPercent} onChange={(e) => updatePlanningValue(m.month, "forecastPercent", Number(e.target.value))}
+                              className="w-16 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-center text-sm dark:text-white" />
+                          </td>
+                          <td className="px-2 py-1 text-right text-slate-900 dark:text-white font-medium">{formatNumber(netDays, 1)}</td>
+                          <td className="px-2 py-1 text-right text-emerald-600 dark:text-emerald-400 font-medium">{formatCurrency(forecastRevenue)}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                   <tfoot>
-                    <tr className="border-t-2 border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 font-semibold">
-                      <td className="px-3 py-2 text-slate-900 dark:text-white">Gesamt</td>
-                      <td className="px-3 py-2 text-right text-slate-900 dark:text-white">{formatNumber(selectedEmployee.totals.availableDays)}</td>
-                      <td className="px-3 py-2 text-right text-amber-600 dark:text-amber-400">
-                        {formatNumber(selectedEmployee.monthly.reduce((s, m) => s + m.vacationDays, 0))}
-                      </td>
-                      <td className="px-3 py-2 text-right text-sky-600 dark:text-sky-400">
-                        {formatNumber(selectedEmployee.monthly.reduce((s, m) => s + m.internalDays, 0))}
-                      </td>
-                      <td className="px-3 py-2 text-right text-slate-900 dark:text-white">{formatNumber(selectedEmployee.totals.netAvailableDays)}</td>
-                      <td className="px-3 py-2 text-right text-slate-900 dark:text-white">{formatNumber(selectedEmployee.totals.availableHours)} Std.</td>
-                      <td className="px-3 py-2 text-right text-slate-900 dark:text-white">{formatCurrency(selectedEmployee.totals.targetRevenue)}</td>
-                      <td className="px-3 py-2 text-right text-slate-600 dark:text-slate-300">–</td>
-                      <td className="px-3 py-2 text-right text-emerald-600 dark:text-emerald-400">{formatCurrency(selectedEmployee.totals.forecastRevenue)}</td>
-                      <td className={`px-3 py-2 text-right ${utilizationColor(selectedEmployee.totals.utilizationPercent)}`}>
-                        {formatPercent(selectedEmployee.totals.utilizationPercent)}
-                      </td>
-                    </tr>
+                    {(() => {
+                      const totals = Object.values(editingPlanning).reduce((acc, ed) => ({
+                        vacationDays: acc.vacationDays + ed.vacationDays,
+                        internalDays: acc.internalDays + ed.internalDays,
+                        sickDays: acc.sickDays + ed.sickDays,
+                        trainingDays: acc.trainingDays + ed.trainingDays,
+                        targetRevenue: acc.targetRevenue + ed.targetRevenue,
+                        forecastRevenue: acc.forecastRevenue + (ed.targetRevenue * ed.forecastPercent / 100)
+                      }), { vacationDays: 0, internalDays: 0, sickDays: 0, trainingDays: 0, targetRevenue: 0, forecastRevenue: 0 });
+                      const totalWorkingDays = selectedEmployee.monthly.reduce((s, m) => s + m.workingDays, 0);
+                      const totalAbsence = totals.vacationDays + totals.internalDays + totals.sickDays + totals.trainingDays;
+                      const totalNetDays = totalWorkingDays - totalAbsence;
+                      return (
+                        <tr className="border-t-2 border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 font-semibold">
+                          <td className="px-2 py-2 text-slate-900 dark:text-white">Gesamt {year}</td>
+                          <td className="px-2 py-2 text-center text-amber-600 dark:text-amber-400">{totals.vacationDays}</td>
+                          <td className="px-2 py-2 text-center text-sky-600 dark:text-sky-400">{totals.internalDays}</td>
+                          <td className="px-2 py-2 text-center text-rose-600 dark:text-rose-400">{totals.sickDays}</td>
+                          <td className="px-2 py-2 text-center text-violet-600 dark:text-violet-400">{totals.trainingDays}</td>
+                          <td className="px-2 py-2 text-center text-slate-900 dark:text-white">{formatCurrency(totals.targetRevenue)}</td>
+                          <td className="px-2 py-2 text-center text-slate-600 dark:text-slate-300">–</td>
+                          <td className="px-2 py-2 text-right text-slate-900 dark:text-white">{formatNumber(totalNetDays)}</td>
+                          <td className="px-2 py-2 text-right text-emerald-600 dark:text-emerald-400">{formatCurrency(totals.forecastRevenue)}</td>
+                        </tr>
+                      );
+                    })()}
                   </tfoot>
                 </table>
               </div>
