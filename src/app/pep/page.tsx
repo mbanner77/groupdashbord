@@ -430,7 +430,7 @@ export default function PepPage() {
       ) : summaryData && activeTab === "overview" ? (
         <>
           {/* KPI Cards */}
-          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <div className="rounded-2xl bg-white dark:bg-slate-800 p-5 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700">
               <div className="text-sm font-medium text-slate-500 dark:text-slate-400">Mitarbeiter</div>
               <div className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">{summaryData.totals.employeeCount}</div>
@@ -444,6 +444,13 @@ export default function PepPage() {
               <div className="mt-2 text-3xl font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(summaryData.totals.forecastRevenue)}</div>
               <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                 {formatPercent((summaryData.totals.forecastRevenue / summaryData.totals.targetRevenue) * 100 || 0)} vom Ziel
+              </div>
+            </div>
+            <div className="rounded-2xl bg-white dark:bg-slate-800 p-5 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700">
+              <div className="text-sm font-medium text-slate-500 dark:text-slate-400">IST-Umsatz</div>
+              <div className="mt-2 text-3xl font-bold text-sky-600 dark:text-sky-400">{formatCurrency(summaryData.totals.actualRevenue)}</div>
+              <div className={`mt-1 text-sm ${summaryData.totals.actualRevenue >= summaryData.totals.targetRevenue ? "text-emerald-600" : "text-rose-600"}`}>
+                {summaryData.totals.actualRevenue >= summaryData.totals.targetRevenue ? "+" : ""}{formatCurrency(summaryData.totals.actualRevenue - summaryData.totals.targetRevenue)} vs. Ziel
               </div>
             </div>
             <div className="rounded-2xl bg-white dark:bg-slate-800 p-5 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700">
