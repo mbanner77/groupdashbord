@@ -4,11 +4,12 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/migrate-pep.mjs && next build",
     "start": "next start",
     "lint": "next lint",
     "import:excel": "node src/scripts/import-excel.mjs",
-    "migrate:postgres": "node scripts/migrate-to-postgres.mjs"
+    "migrate:postgres": "node scripts/migrate-to-postgres.mjs",
+    "migrate:pep": "node scripts/migrate-pep.mjs"
   },
   "dependencies": {
     "@types/better-sqlite3": "^7.6.13",
