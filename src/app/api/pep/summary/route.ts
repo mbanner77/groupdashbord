@@ -1,30 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { allAsync, getAsync } from "../../../../lib/db";
-import { cookies } from "next/headers";
-
-async function getUser() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("session")?.value;
-  if (!token) return null;
-  
-  const session = await getAsync<{ user_id: number; expires_at: string }>(
-    "SELECT user_id, expires_at FROM sessions WHERE token = $1",
-    [token]
-  );
-  if (!session || new Date(session.expires_at) < new Date()) return null;
-  
-  const user = await getAsync<{ id: number; username: string; role: string }>(
-    "SELECT id, username, role FROM users WHERE id = $1",
-    [session.user_id]
-  );
-  return user;
-}
+import { allAsync } from "../../../../lib/db";
+import { getCurrentUser } from "../../../../lib/auth";
 
 // Working days per month (approximate)
 const WORKING_DAYS_PER_MONTH = [22, 20, 23, 21, 22, 21, 23, 22, 22, 23, 21, 20];
 
 export async function GET(req: NextRequest) {
-  const user = await getUser();
+  const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

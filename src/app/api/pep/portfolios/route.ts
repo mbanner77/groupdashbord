@@ -1,27 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { allAsync, getAsync, execAsync } from "../../../../lib/db";
-import { cookies } from "next/headers";
-
-async function getUser() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("session")?.value;
-  if (!token) return null;
-  
-  const session = await getAsync<{ user_id: number; expires_at: string }>(
-    "SELECT user_id, expires_at FROM sessions WHERE token = $1",
-    [token]
-  );
-  if (!session || new Date(session.expires_at) < new Date()) return null;
-  
-  const user = await getAsync<{ id: number; username: string; role: string }>(
-    "SELECT id, username, role FROM users WHERE id = $1",
-    [session.user_id]
-  );
-  return user;
-}
+import { allAsync, execAsync } from "../../../../lib/db";
+import { getCurrentUser } from "../../../../lib/auth";
 
 export async function GET() {
-  const user = await getUser();
+  const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -45,7 +27,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await getUser();
+  const user = await getCurrentUser();
   if (!user || user.role !== "admin") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -93,7 +75,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const user = await getUser();
+  const user = await getCurrentUser();
   if (!user || user.role !== "admin") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -121,7 +103,7 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const user = await getUser();
+  const user = await getCurrentUser();
   if (!user || user.role !== "admin") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

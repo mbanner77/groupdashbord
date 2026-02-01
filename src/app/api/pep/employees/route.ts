@@ -1,35 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { allAsync, getAsync, execAsync } from "../../../../lib/db";
-import { cookies } from "next/headers";
-
-async function getUser() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("session")?.value;
-  if (!token) return null;
-  
-  const session = await getAsync<{ user_id: number; expires_at: string }>(
-    "SELECT user_id, expires_at FROM sessions WHERE token = $1",
-    [token]
-  );
-  if (!session || new Date(session.expires_at) < new Date()) return null;
-  
-  const user = await getAsync<{ id: number; username: string; role: string }>(
-    "SELECT id, username, role FROM users WHERE id = $1",
-    [session.user_id]
-  );
-  return user;
-}
-
-async function getUserEntityPermissions(userId: number) {
-  const permissions = await allAsync<{ entity_id: number; can_edit: number }>(
-    "SELECT entity_id, can_edit FROM user_entity_permissions WHERE user_id = $1",
-    [userId]
-  );
-  return permissions;
-}
+import { getCurrentUser, getUserPermissions } from "../../../../lib/auth";
 
 export async function GET(req: NextRequest) {
-  const user = await getUser();
+  const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -46,8 +20,8 @@ export async function GET(req: NextRequest) {
       query += " WHERE e.entity_id = $1";
       params.push(Number(entityId));
     } else if (user.role !== "admin") {
-      const permissions = await getUserEntityPermissions(user.id);
-      const entityIds = permissions.map(p => p.entity_id);
+      const permissions = await getUserPermissions(user.id);
+      const entityIds = permissions.map(p => p.entityId);
       if (entityIds.length === 0) {
         return NextResponse.json([]);
       }
@@ -91,7 +65,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await getUser();
+  const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -105,8 +79,8 @@ export async function POST(req: NextRequest) {
 
   // Check permissions
   if (user.role !== "admin") {
-    const permissions = await getUserEntityPermissions(user.id);
-    const canEdit = permissions.find(p => p.entity_id === entity_id && p.can_edit);
+    const permissions = await getUserPermissions(user.id);
+    const canEdit = permissions.find(p => p.entityId === entity_id && p.canEdit);
     if (!canEdit) {
       return NextResponse.json({ error: "No permission to edit this entity" }, { status: 403 });
     }
@@ -142,7 +116,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const user = await getUser();
+  const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -162,8 +136,8 @@ export async function PUT(req: NextRequest) {
 
   // Check permissions
   if (user.role !== "admin") {
-    const permissions = await getUserEntityPermissions(user.id);
-    const canEdit = permissions.find(p => p.entity_id === current.entity_id && p.can_edit);
+    const permissions = await getUserPermissions(user.id);
+    const canEdit = permissions.find(p => p.entityId === current.entity_id && p.canEdit);
     if (!canEdit) {
       return NextResponse.json({ error: "No permission to edit this employee" }, { status: 403 });
     }
@@ -198,7 +172,7 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const user = await getUser();
+  const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -218,8 +192,8 @@ export async function DELETE(req: NextRequest) {
 
   // Check permissions
   if (user.role !== "admin") {
-    const permissions = await getUserEntityPermissions(user.id);
-    const canEdit = permissions.find(p => p.entity_id === current.entity_id && p.can_edit);
+    const permissions = await getUserPermissions(user.id);
+    const canEdit = permissions.find(p => p.entityId === current.entity_id && p.canEdit);
     if (!canEdit) {
       return NextResponse.json({ error: "No permission to delete this employee" }, { status: 403 });
     }
