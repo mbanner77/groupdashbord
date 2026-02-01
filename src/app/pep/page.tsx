@@ -141,15 +141,13 @@ export default function PepPage() {
       fetch("/api/years").then(r => r.json()),
       fetch("/api/auth/me").then(r => r.json()),
       fetch("/api/pep/portfolios").then(r => r.json()),
-      fetch("/api/kpis").then(r => r.json())
-    ]).then(([years, user, portfolios, kpisData]) => {
+      fetch("/api/pep/entities").then(r => r.json())
+    ]).then(([years, user, portfolios, entities]) => {
       setAvailableYears(years.all || []);
       setIsAdmin(user.role === "admin");
       setEntities(user.entities || []);
       setAllPortfolios(portfolios);
-      // Get all entities for admin, or user's entities
-      const ents = kpisData.entities || [];
-      setAllEntities(ents.map((e: { code: string; name: string }) => ({ id: 0, code: e.code, display_name: e.name })));
+      setAllEntities(entities || []);
     }).catch(() => {});
   }, []);
 
