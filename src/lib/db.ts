@@ -201,6 +201,81 @@ async function migrate(client: PoolClient) {
     );
   `);
 
+  // PEP (Personal-Einsatz-Planung) tables
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS portfolios (
+      id SERIAL PRIMARY KEY,
+      code TEXT NOT NULL UNIQUE,
+      display_name TEXT NOT NULL,
+      description TEXT,
+      color TEXT DEFAULT '#0ea5e9',
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS employees (
+      id SERIAL PRIMARY KEY,
+      entity_id INTEGER NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
+      employee_number TEXT,
+      first_name TEXT NOT NULL,
+      last_name TEXT NOT NULL,
+      email TEXT,
+      position TEXT,
+      entry_date TEXT,
+      exit_date TEXT,
+      weekly_hours REAL NOT NULL DEFAULT 40,
+      hourly_rate REAL,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS employee_portfolios (
+      id SERIAL PRIMARY KEY,
+      employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+      portfolio_id INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+      allocation_percent REAL NOT NULL DEFAULT 100,
+      UNIQUE(employee_id, portfolio_id)
+    );
+  `);
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS pep_planning (
+      id SERIAL PRIMARY KEY,
+      employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+      year INTEGER NOT NULL,
+      month INTEGER NOT NULL,
+      target_revenue REAL NOT NULL DEFAULT 0,
+      forecast_percent REAL NOT NULL DEFAULT 80,
+      vacation_days REAL NOT NULL DEFAULT 0,
+      internal_days REAL NOT NULL DEFAULT 0,
+      sick_days REAL NOT NULL DEFAULT 0,
+      training_days REAL NOT NULL DEFAULT 0,
+      notes TEXT,
+      updated_at TEXT NOT NULL,
+      UNIQUE(employee_id, year, month)
+    );
+  `);
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS pep_actuals (
+      id SERIAL PRIMARY KEY,
+      employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+      year INTEGER NOT NULL,
+      month INTEGER NOT NULL,
+      actual_revenue REAL NOT NULL DEFAULT 0,
+      billable_hours REAL NOT NULL DEFAULT 0,
+      total_hours REAL NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL,
+      UNIQUE(employee_id, year, month)
+    );
+  `);
+
   // Create default admin user if not exists
   const adminExists = await client.query("SELECT id FROM users WHERE username = 'admin'");
   if (adminExists.rows.length === 0) {
