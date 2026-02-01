@@ -1070,6 +1070,20 @@ export default function PepPage() {
                     📋 Aus {year - 1} kopieren
                   </button>
                   <button
+                    onClick={async () => {
+                      await handleSavePlanning();
+                      const res = await fetch("/api/pep/approvals", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ employeeId: selectedEmployee.employee_id, year, action: "submit" })
+                      });
+                      if (res.ok) alert("Planung zur Freigabe eingereicht!");
+                    }}
+                    className="rounded-lg border border-emerald-300 dark:border-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-2 text-sm font-medium text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
+                  >
+                    ✓ Zur Freigabe
+                  </button>
+                  <button
                     onClick={handleSavePlanning}
                     disabled={savingPlanning}
                     className="rounded-lg bg-violet-500 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-600 disabled:opacity-50"
