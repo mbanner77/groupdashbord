@@ -100,6 +100,24 @@ export default function AdminPage() {
             Schwellwerte und Benachrichtigungen konfigurieren
           </p>
         </Link>
+
+        {/* Portfolios */}
+        <Link
+          href="/admin/portfolios"
+          className="group rounded-xl border border-slate-200 bg-white p-6 transition hover:border-violet-300 hover:shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:hover:border-violet-600"
+        >
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400">
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white group-hover:text-violet-600 dark:group-hover:text-violet-400">
+            Portfolios
+          </h3>
+          <p className="mt-1 text-sm text-slate-500">
+            Portfolios für die PEP-Mitarbeiterzuordnung verwalten
+          </p>
+        </Link>
       </div>
     </div>
   );
