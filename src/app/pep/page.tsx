@@ -726,10 +726,11 @@ export default function PepPage() {
                   <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">Name</th>
                   <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">Firma</th>
                   <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">Portfolios</th>
+                  <th className="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-300">€/Std.</th>
                   <th className="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-300">Zielumsatz</th>
                   <th className="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-300">Prognose</th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-300">Urlaub (Tage)</th>
                   <th className="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-300">Kapazität</th>
+                  <th className="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-300">Potenzial</th>
                   <th className="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-300">Auslastung</th>
                 </tr>
               </thead>
@@ -758,10 +759,11 @@ export default function PepPage() {
                         ))}
                       </div>
                     </td>
+                    <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-300">{emp.hourly_rate ? `${formatNumber(emp.hourly_rate)}€` : "–"}</td>
                     <td className="px-4 py-3 text-right text-slate-900 dark:text-white">{formatCurrency(emp.totals.targetRevenue)}</td>
                     <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">{formatCurrency(emp.totals.forecastRevenue)}</td>
-                    <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-300">{formatNumber(emp.totals.plannedAbsence)}</td>
                     <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-300">{formatNumber(emp.totals.availableHours)} Std.</td>
+                    <td className="px-4 py-3 text-right text-violet-600 dark:text-violet-400">{emp.hourly_rate ? formatCurrency(emp.totals.availableHours * emp.hourly_rate) : "–"}</td>
                     <td className="px-4 py-3 text-right">
                       <UtilizationBadge percent={emp.totals.utilizationPercent} />
                     </td>
