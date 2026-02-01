@@ -122,17 +122,34 @@ export default function PepPage() {
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeSummary | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [allPortfolios, setAllPortfolios] = useState<Array<{ id: number; code: string; display_name: string; color: string }>>([]);
+  const [showEmployeeForm, setShowEmployeeForm] = useState(false);
+  const [employeeForm, setEmployeeForm] = useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    position: "",
+    entity_id: "",
+    weekly_hours: "40",
+    hourly_rate: "",
+    portfolio_ids: [] as number[]
+  });
+  const [savingEmployee, setSavingEmployee] = useState(false);
+  const [allEntities, setAllEntities] = useState<Array<{ id: number; code: string; display_name: string }>>([]);
 
   useEffect(() => {
     Promise.all([
       fetch("/api/years").then(r => r.json()),
       fetch("/api/auth/me").then(r => r.json()),
-      fetch("/api/pep/portfolios").then(r => r.json())
-    ]).then(([years, user, portfolios]) => {
+      fetch("/api/pep/portfolios").then(r => r.json()),
+      fetch("/api/kpis").then(r => r.json())
+    ]).then(([years, user, portfolios, kpisData]) => {
       setAvailableYears(years.all || []);
       setIsAdmin(user.role === "admin");
       setEntities(user.entities || []);
       setAllPortfolios(portfolios);
+      // Get all entities for admin, or user's entities
+      const ents = kpisData.entities || [];
+      setAllEntities(ents.map((e: { code: string; name: string }) => ({ id: 0, code: e.code, display_name: e.name })));
     }).catch(() => {});
   }, []);
 
@@ -165,6 +182,45 @@ export default function PepPage() {
     if (pct >= 80) return "text-emerald-600 dark:text-emerald-400";
     if (pct >= 60) return "text-amber-600 dark:text-amber-400";
     return "text-rose-600 dark:text-rose-400";
+  };
+
+  const reloadData = () => {
+    const params = new URLSearchParams({ year: String(year) });
+    if (selectedEntity !== "all") params.set("entityId", selectedEntity);
+    if (selectedPortfolio !== "all") params.set("portfolioId", selectedPortfolio);
+    fetch(`/api/pep/summary?${params}`).then(r => r.json()).then(setSummaryData).catch(() => {});
+  };
+
+  const handleSaveEmployee = async () => {
+    if (!employeeForm.first_name || !employeeForm.last_name || !employeeForm.entity_id) {
+      alert("Vorname, Nachname und Firma sind erforderlich");
+      return;
+    }
+    setSavingEmployee(true);
+    try {
+      const res = await fetch("/api/pep/employees", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...employeeForm,
+          entity_id: Number(employeeForm.entity_id),
+          weekly_hours: Number(employeeForm.weekly_hours) || 40,
+          hourly_rate: employeeForm.hourly_rate ? Number(employeeForm.hourly_rate) : null
+        })
+      });
+      if (res.ok) {
+        setShowEmployeeForm(false);
+        setEmployeeForm({ first_name: "", last_name: "", email: "", position: "", entity_id: "", weekly_hours: "40", hourly_rate: "", portfolio_ids: [] });
+        reloadData();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Fehler beim Speichern");
+      }
+    } catch (e) {
+      alert("Fehler beim Speichern");
+    } finally {
+      setSavingEmployee(false);
+    }
   };
 
   return (
@@ -353,7 +409,150 @@ export default function PepPage() {
         <section className="rounded-2xl bg-white dark:bg-slate-800 p-6 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white">Mitarbeiter ({summaryData.employees.length})</h2>
+            <button
+              onClick={() => setShowEmployeeForm(true)}
+              className="flex items-center gap-2 rounded-lg bg-violet-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-600"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Mitarbeiter hinzufügen
+            </button>
           </div>
+
+          {showEmployeeForm && (
+            <div className="mb-6 rounded-xl border-2 border-dashed border-violet-200 dark:border-violet-800 bg-violet-50/50 dark:bg-violet-900/20 p-5">
+              <h3 className="mb-4 text-sm font-semibold text-slate-900 dark:text-white">Neuer Mitarbeiter</h3>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Vorname *</label>
+                  <input
+                    type="text"
+                    value={employeeForm.first_name}
+                    onChange={(e) => setEmployeeForm({ ...employeeForm, first_name: e.target.value })}
+                    className="w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Nachname *</label>
+                  <input
+                    type="text"
+                    value={employeeForm.last_name}
+                    onChange={(e) => setEmployeeForm({ ...employeeForm, last_name: e.target.value })}
+                    className="w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Firma *</label>
+                  <select
+                    value={employeeForm.entity_id}
+                    onChange={(e) => setEmployeeForm({ ...employeeForm, entity_id: e.target.value })}
+                    className="w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm dark:text-white"
+                  >
+                    <option value="">Firma wählen…</option>
+                    {(isAdmin ? allEntities : entities.map(ent => ({ id: ent.id, code: ent.code, display_name: ent.name }))).map((e) => (
+                      <option key={e.code} value={e.id || e.code}>{e.display_name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Position</label>
+                  <input
+                    type="text"
+                    value={employeeForm.position}
+                    onChange={(e) => setEmployeeForm({ ...employeeForm, position: e.target.value })}
+                    className="w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm dark:text-white"
+                    placeholder="z.B. Entwickler"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">E-Mail</label>
+                  <input
+                    type="email"
+                    value={employeeForm.email}
+                    onChange={(e) => setEmployeeForm({ ...employeeForm, email: e.target.value })}
+                    className="w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Wochenstunden</label>
+                  <input
+                    type="number"
+                    value={employeeForm.weekly_hours}
+                    onChange={(e) => setEmployeeForm({ ...employeeForm, weekly_hours: e.target.value })}
+                    className="w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Stundensatz (€)</label>
+                  <input
+                    type="number"
+                    value={employeeForm.hourly_rate}
+                    onChange={(e) => setEmployeeForm({ ...employeeForm, hourly_rate: e.target.value })}
+                    className="w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm dark:text-white"
+                    placeholder="optional"
+                  />
+                </div>
+                {isAdmin && allPortfolios.length > 0 && (
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Portfolios</label>
+                    <div className="flex flex-wrap gap-2">
+                      {allPortfolios.map((p) => (
+                        <label key={p.id} className="flex items-center gap-1 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={employeeForm.portfolio_ids.includes(p.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setEmployeeForm({ ...employeeForm, portfolio_ids: [...employeeForm.portfolio_ids, p.id] });
+                              } else {
+                                setEmployeeForm({ ...employeeForm, portfolio_ids: employeeForm.portfolio_ids.filter(id => id !== p.id) });
+                              }
+                            }}
+                            className="rounded border-slate-300"
+                          />
+                          <span className="px-2 py-0.5 rounded-full text-white text-xs" style={{ backgroundColor: p.color }}>{p.code}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  onClick={() => setShowEmployeeForm(false)}
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  onClick={handleSaveEmployee}
+                  disabled={savingEmployee}
+                  className="rounded-lg bg-violet-500 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-600 disabled:opacity-50"
+                >
+                  {savingEmployee ? "Speichern…" : "Speichern"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {summaryData.employees.length === 0 && !showEmployeeForm && (
+            <div className="text-center py-12">
+              <svg className="mx-auto h-12 w-12 text-slate-300 dark:text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <p className="text-slate-500 dark:text-slate-400 mb-4">Noch keine Mitarbeiter angelegt.</p>
+              <button
+                onClick={() => setShowEmployeeForm(true)}
+                className="inline-flex items-center gap-2 rounded-lg bg-violet-500 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-600"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Ersten Mitarbeiter hinzufügen
+              </button>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
