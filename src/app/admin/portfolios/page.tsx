@@ -17,6 +17,15 @@ const COLORS = [
   "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1"
 ];
 
+const SUGGESTED_PORTFOLIOS = [
+  { code: "DEV", display_name: "Development", description: "Software-Entwicklung", color: "#0ea5e9" },
+  { code: "CONS", display_name: "Consulting", description: "Beratung & Projektmanagement", color: "#10b981" },
+  { code: "OPS", display_name: "Operations", description: "IT-Betrieb & Support", color: "#f59e0b" },
+  { code: "SALES", display_name: "Sales", description: "Vertrieb & Akquise", color: "#8b5cf6" },
+  { code: "MGMT", display_name: "Management", description: "Führung & Administration", color: "#ef4444" },
+  { code: "DATA", display_name: "Data & Analytics", description: "Datenanalyse & BI", color: "#06b6d4" },
+];
+
 export default function PortfoliosPage() {
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +34,7 @@ export default function PortfoliosPage() {
   const [formData, setFormData] = useState({ code: "", display_name: "", description: "", color: "#0ea5e9", is_active: true });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const loadPortfolios = async () => {
     try {
@@ -48,6 +58,35 @@ export default function PortfoliosPage() {
     setEditingId(null);
     setShowForm(false);
     setError(null);
+  };
+
+  const showSuccess = (msg: string) => {
+    setSuccessMessage(msg);
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
+  const handleQuickAdd = async (suggestion: typeof SUGGESTED_PORTFOLIOS[0]) => {
+    if (portfolios.some(p => p.code === suggestion.code)) {
+      setError(`Portfolio "${suggestion.code}" existiert bereits`);
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/pep/portfolios", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...suggestion, is_active: true })
+      });
+      if (res.ok) {
+        await loadPortfolios();
+        showSuccess(`Portfolio "${suggestion.display_name}" erstellt`);
+      }
+    } catch (e) {
+      setError("Fehler beim Erstellen");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleEdit = (portfolio: Portfolio) => {
@@ -84,6 +123,7 @@ export default function PortfoliosPage() {
 
       await loadPortfolios();
       resetForm();
+      showSuccess(editingId ? "Portfolio aktualisiert" : "Portfolio erstellt");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -91,18 +131,21 @@ export default function PortfoliosPage() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Portfolio wirklich löschen?")) return;
+  const handleDelete = async (id: number, name: string) => {
+    if (!confirm(`Portfolio "${name}" wirklich löschen? Alle Mitarbeiterzuordnungen werden entfernt.`)) return;
 
     try {
       const res = await fetch(`/api/pep/portfolios?id=${id}`, { method: "DELETE" });
       if (res.ok) {
         await loadPortfolios();
+        showSuccess(`Portfolio "${name}" gelöscht`);
       }
     } catch (e) {
       console.error(e);
     }
   };
+
+  const availableSuggestions = SUGGESTED_PORTFOLIOS.filter(s => !portfolios.some(p => p.code === s.code));
 
   if (loading) {
     return (
@@ -225,61 +268,146 @@ export default function PortfoliosPage() {
           </div>
         )}
 
-        <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-slate-50 dark:bg-slate-700/50">
-                <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">Farbe</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">Code</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">Name</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">Beschreibung</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">Status</th>
-                <th className="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-300">Aktionen</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-              {portfolios.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
-                    Keine Portfolios vorhanden
-                  </td>
-                </tr>
-              ) : (
-                portfolios.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-                    <td className="px-4 py-3">
-                      <div className="h-6 w-6 rounded-full" style={{ backgroundColor: p.color }} />
-                    </td>
-                    <td className="px-4 py-3 font-mono text-slate-900 dark:text-white">{p.code}</td>
-                    <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{p.display_name}</td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{p.description || "–"}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                        p.is_active ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
-                      }`}>
-                        {p.is_active ? "Aktiv" : "Inaktiv"}
+        {/* Success/Error Messages */}
+        {successMessage && (
+          <div className="mb-4 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 p-3 text-sm text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            {successMessage}
+          </div>
+        )}
+        {error && (
+          <div className="mb-4 rounded-lg bg-rose-50 dark:bg-rose-900/30 p-3 text-sm text-rose-700 dark:text-rose-400 flex items-center gap-2">
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {error}
+          </div>
+        )}
+
+        {/* Portfolio Cards */}
+        {portfolios.length === 0 ? (
+          <div className="text-center py-8">
+            <svg className="mx-auto h-16 w-16 text-slate-300 dark:text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Noch keine Portfolios</h3>
+            <p className="text-slate-500 dark:text-slate-400 mb-6 max-w-md mx-auto">
+              Portfolios helfen, Mitarbeiter nach Tätigkeitsbereichen zu gruppieren und die Kapazität pro Bereich zu planen.
+            </p>
+            
+            {availableSuggestions.length > 0 && (
+              <div className="mb-6">
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Schnellstart mit Vorlagen:</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {availableSuggestions.map((s) => (
+                    <button
+                      key={s.code}
+                      onClick={() => handleQuickAdd(s)}
+                      disabled={saving}
+                      className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-white transition hover:opacity-80 disabled:opacity-50"
+                      style={{ backgroundColor: s.color }}
+                    >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      {s.display_name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => setShowForm(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-600"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Eigenes Portfolio erstellen
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Quick Add Suggestions */}
+            {availableSuggestions.length > 0 && (
+              <div className="mb-6 rounded-xl bg-slate-50 dark:bg-slate-700/30 p-4">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Vorschläge hinzufügen:</p>
+                <div className="flex flex-wrap gap-2">
+                  {availableSuggestions.map((s) => (
+                    <button
+                      key={s.code}
+                      onClick={() => handleQuickAdd(s)}
+                      disabled={saving}
+                      className="inline-flex items-center gap-1.5 rounded-full border-2 border-dashed px-3 py-1 text-xs font-medium transition hover:border-solid disabled:opacity-50"
+                      style={{ borderColor: s.color, color: s.color }}
+                    >
+                      <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      {s.display_name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Portfolio Grid */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {portfolios.map((p) => (
+                <div
+                  key={p.id}
+                  className={`rounded-xl border-2 p-5 transition ${
+                    p.is_active 
+                      ? "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800" 
+                      : "border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50 opacity-60"
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="h-10 w-10 rounded-xl flex items-center justify-center text-white font-bold text-sm"
+                        style={{ backgroundColor: p.color }}
+                      >
+                        {p.code.slice(0, 2)}
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-slate-900 dark:text-white">{p.display_name}</h3>
+                        <span className="text-xs font-mono text-slate-500 dark:text-slate-400">{p.code}</span>
+                      </div>
+                    </div>
+                    {!p.is_active && (
+                      <span className="rounded-full bg-slate-200 dark:bg-slate-700 px-2 py-0.5 text-xs text-slate-600 dark:text-slate-400">
+                        Inaktiv
                       </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => handleEdit(p)}
-                        className="mr-2 text-sky-600 hover:text-sky-800 dark:text-sky-400"
-                      >
-                        Bearbeiten
-                      </button>
-                      <button
-                        onClick={() => handleDelete(p.id)}
-                        className="text-rose-600 hover:text-rose-800 dark:text-rose-400"
-                      >
-                        Löschen
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                    )}
+                  </div>
+                  
+                  {p.description && (
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">{p.description}</p>
+                  )}
+                  
+                  <div className="flex items-center gap-2 pt-3 border-t border-slate-100 dark:border-slate-700">
+                    <button
+                      onClick={() => handleEdit(p)}
+                      className="flex-1 rounded-lg bg-slate-100 dark:bg-slate-700 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition"
+                    >
+                      Bearbeiten
+                    </button>
+                    <button
+                      onClick={() => handleDelete(p.id, p.display_name)}
+                      className="rounded-lg bg-rose-50 dark:bg-rose-900/30 px-3 py-1.5 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/50 transition"
+                    >
+                      Löschen
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </section>
     </main>
   );
