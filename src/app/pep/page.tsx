@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 interface Portfolio {
   id: number;
@@ -456,10 +457,28 @@ export default function PepPage() {
             </div>
           </section>
 
-          {/* Portfolio Overview */}
+          {/* Portfolio Overview with Chart */}
           {summaryData.portfolios.length > 0 && (
             <section className="rounded-2xl bg-white dark:bg-slate-800 p-6 shadow-lg ring-1 ring-slate-200/60 dark:ring-slate-700">
-              <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">Auslastung nach Portfolio</h2>
+              <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">Umsatz nach Portfolio</h2>
+              <div className="h-64 mb-6">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={summaryData.portfolios.map(p => ({ name: p.name, Ziel: p.totals.targetRevenue, Prognose: p.totals.forecastRevenue, IST: p.totals.actualRevenue, color: p.color }))} layout="vertical" margin={{ left: 80, right: 20 }}>
+                    <XAxis type="number" tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
+                    <YAxis type="category" dataKey="name" width={70} tick={{ fontSize: 12 }} />
+                    <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ backgroundColor: "rgba(15,23,42,0.9)", border: "none", borderRadius: 8 }} itemStyle={{ color: "#fff" }} labelStyle={{ color: "#94a3b8" }} />
+                    <Bar dataKey="Ziel" fill="#94a3b8" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="Prognose" fill="#10b981" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="IST" fill="#0ea5e9" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex items-center justify-center gap-6 text-sm mb-6">
+                <div className="flex items-center gap-2"><div className="h-3 w-3 rounded bg-slate-400" /> Ziel</div>
+                <div className="flex items-center gap-2"><div className="h-3 w-3 rounded bg-emerald-500" /> Prognose</div>
+                <div className="flex items-center gap-2"><div className="h-3 w-3 rounded bg-sky-500" /> IST</div>
+              </div>
+              <h3 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Details</h3>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {summaryData.portfolios.map((p) => (
                   <div key={p.id} className="rounded-xl bg-slate-50 dark:bg-slate-700/50 p-4">
