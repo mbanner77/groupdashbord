@@ -35,15 +35,15 @@ export async function GET(req: NextRequest) {
     const employeeParams: (string | number)[] = [];
 
     if (entityId) {
-      employeeQuery += " AND e.entity_id = $1";
       employeeParams.push(Number(entityId));
+      employeeQuery += ` AND e.entity_id = $${employeeParams.length}`;
     }
 
     if (portfolioId) {
       // Filter by monthly planning portfolio assignment instead of static employee_portfolios
-      employeeQuery += ` AND EXISTS (SELECT 1 FROM pep_planning pp WHERE pp.employee_id = e.id AND pp.year = $${employeeParams.length + 1} AND pp.portfolio_id = $${employeeParams.length + 2})`;
       employeeParams.push(year);
       employeeParams.push(Number(portfolioId));
+      employeeQuery += ` AND EXISTS (SELECT 1 FROM pep_planning pp WHERE pp.employee_id = e.id AND pp.year = $${employeeParams.length - 1} AND pp.portfolio_id = $${employeeParams.length})`;
     }
 
     const employees = await allAsync<{
