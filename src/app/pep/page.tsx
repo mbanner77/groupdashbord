@@ -309,7 +309,7 @@ export default function PepPage() {
     }
   };
 
-  const updatePlanningValue = (month: number, field: keyof typeof editingPlanning[number], value: number | null) => {
+  const updatePlanningValue = (month: number, field: keyof typeof editingPlanning[number], value: number | null | string) => {
     setEditingPlanning(prev => ({
       ...prev,
       [month]: { ...prev[month], [field]: value }
@@ -843,6 +843,7 @@ export default function PepPage() {
                       {showActuals && <th className="px-2 py-2 text-center font-semibold text-sky-700 dark:text-sky-300">Δ Plan/IST</th>}
                       <th className="px-2 py-2 text-right font-semibold text-slate-700 dark:text-slate-300">Netto-Tage</th>
                       <th className="px-2 py-2 text-right font-semibold text-slate-700 dark:text-slate-300">Prognose €</th>
+                      <th className="px-2 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">Notiz</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
@@ -902,6 +903,11 @@ export default function PepPage() {
                           )}
                           <td className="px-2 py-1 text-right text-slate-900 dark:text-white font-medium">{formatNumber(netDays, 1)}</td>
                           <td className="px-2 py-1 text-right text-emerald-600 dark:text-emerald-400 font-medium">{formatCurrency(forecastRevenue)}</td>
+                          <td className="px-1 py-1">
+                            <input type="text" value={ed.notes || ""} onChange={(e) => updatePlanningValue(m.month, "notes", e.target.value)}
+                              placeholder="Notiz..."
+                              className="w-28 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-sm dark:text-white" />
+                          </td>
                         </tr>
                       );
                     })}
@@ -935,6 +941,7 @@ export default function PepPage() {
                           {showActuals && <td className={`px-2 py-2 text-center ${totalDelta >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>{totalDelta >= 0 ? "+" : ""}{formatCurrency(totalDelta)}</td>}
                           <td className="px-2 py-2 text-right text-slate-900 dark:text-white">{formatNumber(totalNetDays)}</td>
                           <td className="px-2 py-2 text-right text-emerald-600 dark:text-emerald-400">{formatCurrency(totals.forecastRevenue)}</td>
+                          <td className="px-2 py-2"></td>
                         </tr>
                       );
                     })()}
