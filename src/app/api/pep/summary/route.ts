@@ -40,7 +40,9 @@ export async function GET(req: NextRequest) {
     }
 
     if (portfolioId) {
-      employeeQuery += ` AND EXISTS (SELECT 1 FROM employee_portfolios ep WHERE ep.employee_id = e.id AND ep.portfolio_id = $${employeeParams.length + 1})`;
+      // Filter by monthly planning portfolio assignment instead of static employee_portfolios
+      employeeQuery += ` AND EXISTS (SELECT 1 FROM pep_planning pp WHERE pp.employee_id = e.id AND pp.year = $${employeeParams.length + 1} AND pp.portfolio_id = $${employeeParams.length + 2})`;
+      employeeParams.push(year);
       employeeParams.push(Number(portfolioId));
     }
 
@@ -111,8 +113,13 @@ export async function GET(req: NextRequest) {
 
   // Calculate summary per employee
   const employeeSummary = employees.map(emp => {
-    const empPlanning = planningData.filter(p => p.employee_id === emp.employee_id);
+    let empPlanning = planningData.filter(p => p.employee_id === emp.employee_id);
     const empPortfolios = portfolioAssignments.filter(p => p.employee_id === emp.employee_id);
+    
+    // Filter by portfolio if portfolioId is set
+    if (portfolioId) {
+      empPlanning = empPlanning.filter(p => p.portfolio_id === Number(portfolioId));
+    }
     
     // Calculate totals
     let totalTargetRevenue = 0;
@@ -132,8 +139,10 @@ export async function GET(req: NextRequest) {
         totalActualRevenue += monthData.actual_revenue;
         totalPlannedAbsence += monthData.vacation_days + monthData.internal_days + monthData.sick_days + monthData.training_days;
         totalBillableHours += monthData.billable_hours;
+        totalAvailableDays += workingDays;
+      } else if (!portfolioId) {
+        totalAvailableDays += workingDays;
       }
-      totalAvailableDays += workingDays;
     }
 
     const netAvailableDays = totalAvailableDays - totalPlannedAbsence;
