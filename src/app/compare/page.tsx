@@ -57,77 +57,40 @@ export default function ComparePage() {
 
     const loadData = async () => {
       setLoading(true);
-      const results: EntityData[] = [];
-
-      for (const entityCode of selectedEntities) {
-        try {
-          const res = await fetch(`/api/kpis?year=${year}&entity=${entityCode}`);
-          if (res.ok) {
-            const d = await res.json();
-            const entity = entities.find((e) => e.code === entityCode);
-            // Get monthly data - use actual, fallback to plan if actual is all zeros
-            const umsatzActualMonthly = d.kpis?.umsatz?.monthly?.map((m: { actual: number }) => m.actual) || [];
-            const umsatzPlanMonthly = d.kpis?.umsatz?.monthly?.map((m: { plan: number }) => m.plan) || [];
-            const umsatzMonthly = umsatzActualMonthly.some((v: number) => v > 0) ? umsatzActualMonthly : umsatzPlanMonthly;
-            
-            const ebitActualMonthly = d.kpis?.ebit?.monthly?.map((m: { actual: number }) => m.actual) || [];
-            const ebitPlanMonthly = d.kpis?.ebit?.monthly?.map((m: { plan: number }) => m.plan) || [];
-            const ebitMonthly = ebitActualMonthly.some((v: number) => v > 0) ? ebitActualMonthly : ebitPlanMonthly;
-            
-            const headcountActualMonthly = d.kpis?.headcount?.monthly?.map((m: { actual: number }) => m.actual) || [];
-            const headcountPlanMonthly = d.kpis?.headcount?.monthly?.map((m: { plan: number }) => m.plan) || [];
-            const headcountMonthly = headcountActualMonthly.some((v: number) => v > 0) ? headcountActualMonthly : headcountPlanMonthly;
-            
-            // Calculate sum for selected month range
-            const sumRange = (arr: number[]) => {
-              let sum = 0;
-              for (let i = monthFrom - 1; i < monthTo && i < arr.length; i++) {
-                sum += arr[i] || 0;
-              }
-              return sum;
-            };
-            
-            // Calculate average for headcount (employees are counted, not summed)
-            const avgRange = (arr: number[]) => {
-              let sum = 0;
-              let count = 0;
-              for (let i = monthFrom - 1; i < monthTo && i < arr.length; i++) {
-                if (arr[i] !== undefined && arr[i] !== null) {
-                  sum += arr[i];
-                  count++;
-                }
-              }
-              return count > 0 ? sum / count : 0;
-            };
-            
-            const umsatzSum = sumRange(umsatzMonthly);
-            const ebitSum = sumRange(ebitMonthly);
-            const headcountAvg = avgRange(headcountMonthly);
-            
-            results.push({
-              code: entityCode,
-              name: entity?.name || entityCode,
-              umsatz: umsatzSum,
-              ebit: ebitSum,
-              headcount: headcountAvg,
-              margin: umsatzSum ? (ebitSum / umsatzSum) * 100 : 0,
-              monthly: {
-                umsatz: umsatzMonthly,
-                ebit: ebitMonthly,
-              },
-            });
-          }
-        } catch (e) {
-          console.error("Failed to load entity", entityCode, e);
+      try {
+        const res = await fetch(
+          `/api/compare?year=${year}&entities=${selectedEntities.join(",")}&monthFrom=${monthFrom}&monthTo=${monthTo}`
+        );
+        if (res.ok) {
+          const d = await res.json();
+          setData(
+            (d.entities || []).map((e: {
+              code: string;
+              name: string;
+              umsatz: number;
+              ebit: number;
+              headcount: number;
+              margin: number;
+              monthly: { umsatz: number[]; ebit: number[] };
+            }) => ({
+              code: e.code,
+              name: e.name,
+              umsatz: e.umsatz,
+              ebit: e.ebit,
+              headcount: e.headcount,
+              margin: e.margin,
+              monthly: e.monthly,
+            }))
+          );
         }
+      } catch (e) {
+        console.error("Failed to load comparison data", e);
       }
-
-      setData(results);
       setLoading(false);
     };
 
     loadData();
-  }, [selectedEntities, year, entities, monthFrom, monthTo]);
+  }, [selectedEntities, year, monthFrom, monthTo]);
 
   const toggleEntity = (code: string) => {
     setSelectedEntities((prev) =>
