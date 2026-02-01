@@ -325,6 +325,7 @@ async function migrate(client: PoolClient) {
       employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
       year INTEGER NOT NULL,
       month INTEGER NOT NULL,
+      portfolio_id INTEGER REFERENCES portfolios(id) ON DELETE SET NULL,
       target_revenue REAL NOT NULL DEFAULT 0,
       forecast_percent REAL NOT NULL DEFAULT 80,
       vacation_days REAL NOT NULL DEFAULT 0,
@@ -335,6 +336,14 @@ async function migrate(client: PoolClient) {
       updated_at TEXT NOT NULL,
       UNIQUE(employee_id, year, month)
     );
+  `);
+
+  // Add portfolio_id column if it doesn't exist (migration for existing tables)
+  await client.query(`
+    DO $$ BEGIN
+      ALTER TABLE pep_planning ADD COLUMN IF NOT EXISTS portfolio_id INTEGER REFERENCES portfolios(id) ON DELETE SET NULL;
+    EXCEPTION WHEN others THEN NULL;
+    END $$;
   `);
 
   await client.query(`

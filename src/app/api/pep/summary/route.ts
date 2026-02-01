@@ -60,6 +60,10 @@ export async function GET(req: NextRequest) {
       SELECT 
         pp.employee_id,
         pp.month,
+        pp.portfolio_id,
+        p.code as portfolio_code,
+        p.display_name as portfolio_name,
+        p.color as portfolio_color,
         pp.target_revenue,
         pp.forecast_percent,
         pp.vacation_days,
@@ -70,11 +74,16 @@ export async function GET(req: NextRequest) {
         COALESCE(pa.billable_hours, 0) as billable_hours
       FROM pep_planning pp
       LEFT JOIN pep_actuals pa ON pa.employee_id = pp.employee_id AND pa.year = pp.year AND pa.month = pp.month
+      LEFT JOIN portfolios p ON p.id = pp.portfolio_id
       WHERE pp.year = $1
     `;
     const planningData = await allAsync<{
       employee_id: number;
       month: number;
+      portfolio_id: number | null;
+      portfolio_code: string | null;
+      portfolio_name: string | null;
+      portfolio_color: string | null;
       target_revenue: number;
       forecast_percent: number;
       vacation_days: number;
@@ -159,6 +168,10 @@ export async function GET(req: NextRequest) {
         return {
           month,
           workingDays,
+          portfolioId: monthData?.portfolio_id || null,
+          portfolioCode: monthData?.portfolio_code || null,
+          portfolioName: monthData?.portfolio_name || null,
+          portfolioColor: monthData?.portfolio_color || null,
           targetRevenue: monthData?.target_revenue || 0,
           forecastPercent: monthData?.forecast_percent || 80,
           forecastRevenue: (monthData?.target_revenue || 0) * ((monthData?.forecast_percent || 80) / 100),

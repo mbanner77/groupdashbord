@@ -152,13 +152,14 @@ export async function POST(req: NextRequest) {
 
   try {
     for (const data of monthly_data) {
-      const { month, target_revenue, forecast_percent, vacation_days, internal_days, sick_days, training_days, notes } = data;
+      const { month, portfolio_id, target_revenue, forecast_percent, vacation_days, internal_days, sick_days, training_days, notes } = data;
       if (!month) continue;
 
       await execAsync(
-        `INSERT INTO pep_planning (employee_id, year, month, target_revenue, forecast_percent, vacation_days, internal_days, sick_days, training_days, notes, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `INSERT INTO pep_planning (employee_id, year, month, portfolio_id, target_revenue, forecast_percent, vacation_days, internal_days, sick_days, training_days, notes, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
          ON CONFLICT (employee_id, year, month) DO UPDATE SET
+           portfolio_id = EXCLUDED.portfolio_id,
            target_revenue = EXCLUDED.target_revenue,
            forecast_percent = EXCLUDED.forecast_percent,
            vacation_days = EXCLUDED.vacation_days,
@@ -167,7 +168,7 @@ export async function POST(req: NextRequest) {
            training_days = EXCLUDED.training_days,
            notes = EXCLUDED.notes,
            updated_at = EXCLUDED.updated_at`,
-        [employee_id, year, month, target_revenue || 0, forecast_percent || 80, vacation_days || 0, internal_days || 0, sick_days || 0, training_days || 0, notes || null, now]
+        [employee_id, year, month, portfolio_id || null, target_revenue || 0, forecast_percent || 80, vacation_days || 0, internal_days || 0, sick_days || 0, training_days || 0, notes || null, now]
       );
     }
 

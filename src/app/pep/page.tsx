@@ -35,6 +35,10 @@ interface Entity {
 interface MonthlyData {
   month: number;
   workingDays: number;
+  portfolioId: number | null;
+  portfolioCode: string | null;
+  portfolioName: string | null;
+  portfolioColor: string | null;
   targetRevenue: number;
   forecastPercent: number;
   forecastRevenue: number;
@@ -121,7 +125,7 @@ export default function PepPage() {
   const [activeTab, setActiveTab] = useState<"overview" | "employees" | "planning">("overview");
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeSummary | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [editingPlanning, setEditingPlanning] = useState<Record<number, { targetRevenue: number; forecastPercent: number; vacationDays: number; internalDays: number; sickDays: number; trainingDays: number }>>({});
+  const [editingPlanning, setEditingPlanning] = useState<Record<number, { portfolioId: number | null; targetRevenue: number; forecastPercent: number; vacationDays: number; internalDays: number; sickDays: number; trainingDays: number }>>({});
   const [savingPlanning, setSavingPlanning] = useState(false);
   const [allPortfolios, setAllPortfolios] = useState<Array<{ id: number; code: string; display_name: string; color: string }>>([]);
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
@@ -193,10 +197,11 @@ export default function PepPage() {
 
   // Initialize editing data when employee is selected
   const initEditingPlanning = (emp: EmployeeSummary) => {
-    const data: Record<number, { targetRevenue: number; forecastPercent: number; vacationDays: number; internalDays: number; sickDays: number; trainingDays: number }> = {};
+    const data: Record<number, { portfolioId: number | null; targetRevenue: number; forecastPercent: number; vacationDays: number; internalDays: number; sickDays: number; trainingDays: number }> = {};
     for (let m = 1; m <= 12; m++) {
       const monthData = emp.monthly.find(md => md.month === m);
       data[m] = {
+        portfolioId: monthData?.portfolioId || null,
         targetRevenue: monthData?.targetRevenue || 0,
         forecastPercent: monthData?.forecastPercent || 80,
         vacationDays: monthData?.vacationDays || 0,
@@ -214,6 +219,7 @@ export default function PepPage() {
     try {
       const monthly_data = Object.entries(editingPlanning).map(([month, data]) => ({
         month: Number(month),
+        portfolio_id: data.portfolioId,
         target_revenue: data.targetRevenue,
         forecast_percent: data.forecastPercent,
         vacation_days: data.vacationDays,
@@ -246,7 +252,7 @@ export default function PepPage() {
     }
   };
 
-  const updatePlanningValue = (month: number, field: keyof typeof editingPlanning[number], value: number) => {
+  const updatePlanningValue = (month: number, field: keyof typeof editingPlanning[number], value: number | null) => {
     setEditingPlanning(prev => ({
       ...prev,
       [month]: { ...prev[month], [field]: value }
@@ -716,6 +722,7 @@ export default function PepPage() {
                   <thead>
                     <tr className="border-b border-slate-200 dark:border-slate-700">
                       <th className="px-2 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">Monat</th>
+                      <th className="px-2 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">Portfolio</th>
                       <th className="px-2 py-2 text-center font-semibold text-slate-700 dark:text-slate-300">Urlaub</th>
                       <th className="px-2 py-2 text-center font-semibold text-slate-700 dark:text-slate-300">Intern</th>
                       <th className="px-2 py-2 text-center font-semibold text-slate-700 dark:text-slate-300">Krank</th>
@@ -728,13 +735,25 @@ export default function PepPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                     {selectedEmployee.monthly.map((m) => {
-                      const ed = editingPlanning[m.month] || { targetRevenue: 0, forecastPercent: 80, vacationDays: 0, internalDays: 0, sickDays: 0, trainingDays: 0 };
+                      const ed = editingPlanning[m.month] || { portfolioId: null, targetRevenue: 0, forecastPercent: 80, vacationDays: 0, internalDays: 0, sickDays: 0, trainingDays: 0 };
                       const absenceDays = ed.vacationDays + ed.internalDays + ed.sickDays + ed.trainingDays;
                       const netDays = m.workingDays - absenceDays;
                       const forecastRevenue = ed.targetRevenue * (ed.forecastPercent / 100);
                       return (
                         <tr key={m.month} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
                           <td className="px-2 py-1 font-medium text-slate-900 dark:text-white">{MONTHS[m.month - 1]}</td>
+                          <td className="px-1 py-1">
+                            <select
+                              value={ed.portfolioId ?? ""}
+                              onChange={(e) => updatePlanningValue(m.month, "portfolioId", e.target.value ? Number(e.target.value) : null)}
+                              className="w-32 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-sm dark:text-white"
+                            >
+                              <option value="">– kein –</option>
+                              {allPortfolios.map(p => (
+                                <option key={p.id} value={p.id}>{p.display_name}</option>
+                              ))}
+                            </select>
+                          </td>
                           <td className="px-1 py-1">
                             <input type="number" min="0" max="31" value={ed.vacationDays} onChange={(e) => updatePlanningValue(m.month, "vacationDays", Number(e.target.value))}
                               className="w-14 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-center text-sm dark:text-white" />
@@ -781,6 +800,7 @@ export default function PepPage() {
                       return (
                         <tr className="border-t-2 border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 font-semibold">
                           <td className="px-2 py-2 text-slate-900 dark:text-white">Gesamt {year}</td>
+                          <td className="px-2 py-2"></td>
                           <td className="px-2 py-2 text-center text-amber-600 dark:text-amber-400">{totals.vacationDays}</td>
                           <td className="px-2 py-2 text-center text-sky-600 dark:text-sky-400">{totals.internalDays}</td>
                           <td className="px-2 py-2 text-center text-rose-600 dark:text-rose-400">{totals.sickDays}</td>
