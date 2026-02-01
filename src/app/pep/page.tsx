@@ -513,7 +513,7 @@ export default function PepPage() {
                   >
                     <option value="">Firma wählen…</option>
                     {(isAdmin ? allEntities : entities.map(ent => ({ id: ent.id, code: ent.code, display_name: ent.name }))).map((e) => (
-                      <option key={e.code} value={e.id || e.code}>{e.display_name}</option>
+                      <option key={e.code} value={e.id}>{e.display_name}</option>
                     ))}
                   </select>
                 </div>
