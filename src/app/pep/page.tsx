@@ -210,7 +210,7 @@ export default function PepPage() {
   };
 
   // Initialize editing data when employee is selected
-  const initEditingPlanning = (emp: EmployeeSummary) => {
+  const initEditingPlanning = async (emp: EmployeeSummary) => {
     const data: Record<number, { portfolioId: number | null; targetRevenue: number; forecastPercent: number; vacationDays: number; internalDays: number; sickDays: number; trainingDays: number; actualRevenue: number; billableHours: number; notes: string }> = {};
     for (let m = 1; m <= 12; m++) {
       const monthData = emp.monthly.find(md => md.month === m);
@@ -228,6 +228,14 @@ export default function PepPage() {
       };
     }
     setEditingPlanning(data);
+    // Load yearly comment
+    try {
+      const res = await fetch(`/api/pep/comments?employeeId=${emp.employee_id}&year=${year}`);
+      if (res.ok) {
+        const { comment } = await res.json();
+        setYearlyComment(comment || "");
+      }
+    } catch { setYearlyComment(""); }
   };
 
   // Filter employees based on search
@@ -1015,6 +1023,25 @@ export default function PepPage() {
                     </span>
                   ))}
                 </div>
+              </div>
+
+              {/* Yearly Comment */}
+              <div className="mb-4 rounded-xl bg-slate-50 dark:bg-slate-700/50 p-4">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Jahreskommentar {year}</label>
+                <textarea
+                  value={yearlyComment}
+                  onChange={(e) => setYearlyComment(e.target.value)}
+                  onBlur={async () => {
+                    await fetch("/api/pep/comments", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ employeeId: selectedEmployee.employee_id, year, comment: yearlyComment })
+                    });
+                  }}
+                  placeholder="Notizen zu diesem Mitarbeiter für das Jahr..."
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm dark:text-white resize-none"
+                  rows={2}
+                />
               </div>
 
               {/* Monthly Planning Grid - Editable */}
